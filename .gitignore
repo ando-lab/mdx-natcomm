@@ -2,6 +2,11 @@
 *.m~
 /demo/proc
 /+io/@DectrisCBF/private/codegen
+/+model/+atom/@AbsorptionCoefficient/private/nist_data
+/+model/+atom/@ScatteringFactor/private/tables
+/+model/+atom/private
+triclinic_lysozyme_maps/data
+triclinic_lysozyme_maps/tmp_test_all.m
 *.mat
 *.h5
 *.log
