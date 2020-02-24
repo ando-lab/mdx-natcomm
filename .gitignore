@@ -1,0 +1,9 @@
+.DS_Store
+*.m~
+/demo/proc
+/+io/@DectrisCBF/private/codegen
+*.mat
+*.h5
+*.log
+*.pdb
+*.mtz
