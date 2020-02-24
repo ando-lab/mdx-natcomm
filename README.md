@@ -13,7 +13,11 @@
 - `+latt` - direct and reciprocal lattices, Fourier transforms
 - `+symm` - space group symmetries
 - `+util` - functions and class definitions used by other libraries
+- `+model` - atomic coordinates and scattering factors
+- `+nm` - rigid-body crystalline elastic network for scattering simulation
 - `demo` - a small simulated dataset and MATLAB scripts to process it. See Demonstration, below.
+- `triclinic_lysozyme_maps` - scripts to process diffuse scattering from triclinic lysozyme data as described in Ref. [1]
+- `triclinic_lysozyme_model` - scripts that fit elastic network and lattice dynamics models of triclinic lysozyme as described in Ref. [1]
 
 ## System Requirements
 
