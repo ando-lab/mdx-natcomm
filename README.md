@@ -28,7 +28,7 @@ The processing libraries are designed to run on a desktop computer with a large 
 - RAM: 64 GB
 - CPU: 10 cores, 3 GHz/core
 
-The demo uses simulated data with much small images, and will run quickly on a modest machine without parallel processing (see below).
+The demo uses simulated data with small images, and will run quickly on a modest machine without parallel processing (see below).
 
 ### Software dependencies
 
