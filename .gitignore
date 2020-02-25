@@ -12,4 +12,4 @@ triclinic_lysozyme_maps/tmp_test_all.m
 *.log
 *.pdb
 *.mtz
-!/proc/aimless/XDS_ASCII_aimless.mtz
+!/triclinic_lysozyme_maps/proc/aimless/XDS_ASCII_aimless.mtz
