@@ -5,15 +5,11 @@
 pdbFileName = '6o2h.pdb';
 mtzFileName = '6o2h.mtz';
 
-% uncomment below to get from the PDB:
-%websave(fullfile('model',pdbFileName),['https://files.rcsb.org/download/' pdbFileName]);
-%websave(fullfile('model',mtzFileName),['https://edmaps.rcsb.org/coefficients/' mtzFileName]);
+websave(fullfile('model',pdbFileName),...
+    ['https://files.rcsb.org/download/' pdbFileName]);
+websave(fullfile('model',mtzFileName),...
+    ['https://edmaps.rcsb.org/coefficients/' mtzFileName]);
 
-% or, use a local copy:
-%copyfile('~/CloudStation/Documents/projects/lysozyme/refinement/triclinic/lys_tricl_4_refmac12_addH.pdb',...
-%    fullfile('model',pdbFileName));
-%copyfile('~/CloudStation/Documents/projects/lysozyme/refinement/triclinic/june2017_nitrate_ubatch4_aimless_truncate1.mtz',...
-%    fullfile('model',mtzFileName));
 %% import the coordinates
 [Atoms,Basis,SpaceGroup] = pdbImport(fullfile('model',pdbFileName),'A'); % chain A is protein, the rest are het
 
@@ -76,7 +72,6 @@ for j=1:size(Atoms,1)
     Atoms.fsol(j) = Atoms.fsol(j).addU(Ufit + eye(3)*Bsol/(8*pi^2));
 end
 
-%assert(all(arrayfun(@(g) det(inv(g.U)),Atoms.fatom)>=0)); % check that U is invertible
 %%
 isPosDef = arrayfun(@(g) det(inv(g.U)),Atoms.fatom)>=0;
 
@@ -107,7 +102,7 @@ atomOrder = cell2mat(ind);
 
 Atoms = Atoms(atomOrder,:);
 
-% now, assign coordinates to group operator so I can calculate projections
+% now, assign coordinates to group operator (to calculate projections)
 ind = accumarray(Atoms.resNum,1:size(Atoms,1),[numRes,1],@(v) {v});
 assert(issorted(cell2mat(ind))); % just in case
 
@@ -118,12 +113,8 @@ end
 
 P = G.tl2uxyz;
 P0 = nm.Group(Atoms.x,Atoms.y,Atoms.z,1).tl2uxyz;
-%nAtoms = numel(x);
 
 %% Calculate pdb model grouped by domain
-
-% Load the coordinates and the solvent model (one pseudo-atom for each real
-% one). The solvent model parameters were fit to the Bragg data.
 
 % sort the coordinates into groups
 
@@ -142,8 +133,6 @@ Atoms.domain(ishinge(Atoms.resNum)) = 3;
 % assign coordinates to group operator so I can calculate projections
 ind = accumarray(Atoms.domain,1:size(Atoms,1),[3,1],@(v) {v});
 
-%assert(issorted(cell2mat(ind))); % just in case
-
 G = nm.Group.empty();
 for n=1:numel(ind)
     G(n) = nm.Group(Atoms.x(ind{n}),Atoms.y(ind{n}),Atoms.z(ind{n}),1);
@@ -156,7 +145,7 @@ atomOrder = cell2mat(ind);
 Pd = mat2cell(Pd,3*ones(size(Pd,1)/3,1),size(Pd,2));
 [~,ix] = sort(atomOrder,'ascend');
 Pd = cell2mat(Pd(ix));
-%nAtoms = numel(x);
+
 %%
 
 clear ind n G atomOrder
