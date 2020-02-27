@@ -2,7 +2,7 @@
 
 %% identify strong Bragg peaks in a given resolution bin
 
-mtzFileName = 'model/6o2h.mtz';
+mtzFileName = 'model/6o2h_aimless_truncate.mtz';
 
 % get the 400 most-intense Bragg reflections in this resolution bin
 numRef = 400;
