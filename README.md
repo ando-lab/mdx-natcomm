@@ -64,6 +64,10 @@ The run time on a normal desktop computer is about 5 minutes.
 
 For further information, see comments in `process.m`.
 
+## Instructions for use
+
+We have also included scripts for reproducing the data reduction and model fitting described in our paper [1]. For detailed instructions, see [triclinic_lysozyme_maps/README.md](triclinic_lysozyme_maps/README.md) and [triclinic_lysozyme_model/README.md](triclinic_lysozyme_model/README.md).
+
 ## References
 
 [1]: Meisburger SP, Case DA, Ando N. (2020). Diffuse X-ray Scattering from Correlated Motions in a Protein Crystal. Nature Communications. http://dx.doi.org/10.1038/s41467-020-14933-6
