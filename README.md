@@ -2,7 +2,7 @@
 
 ## Description
 
-`mdx-lib` is a MATLAB library for processing and simulating macromolecular diffuse X-ray scattering (MDX). See our paper ([Meisburger et al.](ref1)) for details.
+`mdx-lib` is a MATLAB library for processing and simulating macromolecular diffuse X-ray scattering (MDX). See our paper [1] for details.
 
 ## Repository Contents
 
@@ -16,8 +16,8 @@
 - `+model` - atomic coordinates and scattering factors
 - `+nm` - rigid-body crystalline elastic network for scattering simulation
 - `demo` - a small simulated dataset and MATLAB scripts to process it. See Demonstration, below.
-- `triclinic_lysozyme_maps` - scripts to process diffuse scattering from triclinic lysozyme data as described in [Meisburger et al](ref1).
-- `triclinic_lysozyme_model` - scripts that fit elastic network and lattice dynamics models of triclinic lysozyme as described in [Meisburger et al](ref1).
+- `triclinic_lysozyme_maps` - scripts to process diffuse scattering from triclinic lysozyme data as described in Ref. [1]
+- `triclinic_lysozyme_model` - scripts that fit elastic network and lattice dynamics models of triclinic lysozyme as described in Ref. [1]
 
 ## System Requirements
 
@@ -66,8 +66,8 @@ For further information, see comments in `process.m`.
 
 ## Instructions for use
 
-We have also included scripts for reproducing the data reduction and model fitting described in [Meisburger et al](ref1). For detailed instructions, see [triclinic_lysozyme_maps/README.md](triclinic_lysozyme_maps/README.md) and [triclinic_lysozyme_model/README.md](triclinic_lysozyme_model/README.md).
+We have also included scripts for reproducing the data reduction and model fitting described in our paper [1]. For detailed instructions, see [triclinic_lysozyme_maps/README.md](triclinic_lysozyme_maps/README.md) and [triclinic_lysozyme_model/README.md](triclinic_lysozyme_model/README.md).
 
 ## References
 
-[ref1]: Meisburger SP, Case DA, Ando N. (2020). Diffuse X-ray Scattering from Correlated Motions in a Protein Crystal. Nature Communications. http://dx.doi.org/10.1038/s41467-020-14933-6
+[1]: Meisburger SP, Case DA, Ando N. (2020). Diffuse X-ray Scattering from Correlated Motions in a Protein Crystal. Nature Communications. http://dx.doi.org/10.1038/s41467-020-14933-6
