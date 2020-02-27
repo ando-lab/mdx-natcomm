@@ -13,3 +13,4 @@ triclinic_lysozyme_maps/tmp_test_all.m
 *.pdb
 *.mtz
 !/triclinic_lysozyme_maps/proc/aimless/XDS_ASCII_aimless.mtz
+!/triclinic_lysozyme_model/model/6o2h_aimless_truncate.mtz

@@ -1,17 +1,16 @@
-%% PDB model of tetragonal lysozyme, with gaussian solvent "atoms"
+%% PDB model of triclinic lysozyme, with gaussian solvent "atoms"
 
 %% download the file from the protein data bank
 
-pdbFileName = '6o2h.pdb';
-mtzFileName = '6o2h.mtz';
+pdbFile = 'model/6o2h.pdb';
 
-websave(fullfile('model',pdbFileName),...
-    ['https://files.rcsb.org/download/' pdbFileName]);
-websave(fullfile('model',mtzFileName),...
-    ['https://edmaps.rcsb.org/coefficients/' mtzFileName]);
+mtzFile = 'model/6o2h_aimless_truncate.mtz';
+
+[~,pdbcode] = fileparts(pdbFile);
+websave(pdbFile,['https://files.rcsb.org/download/' pdbcode '.pdb']);
 
 %% import the coordinates
-[Atoms,Basis,SpaceGroup] = pdbImport(fullfile('model',pdbFileName),'A'); % chain A is protein, the rest are het
+[Atoms,Basis,SpaceGroup] = pdbImport(pdbFile); 
 
 isIon = ismember(Atoms.element,{'Cl'});
 
@@ -33,7 +32,7 @@ clear opts Sol
 
 opts = {'dgrid',0.3};
 
-mtzTruncate = addFcalc2mtz(fullfile('model',mtzFileName),Atoms,Basis,SpaceGroup,opts{:});
+mtzTruncate = addFcalc2mtz(mtzFile,Atoms,Basis,SpaceGroup,opts{:});
 
 clear opts mtzFileName
 
@@ -72,7 +71,8 @@ for j=1:size(Atoms,1)
     Atoms.fsol(j) = Atoms.fsol(j).addU(Ufit + eye(3)*Bsol/(8*pi^2));
 end
 
-%%
+%% fix any ADPs that are not positive definite
+% (just in case)
 isPosDef = arrayfun(@(g) det(inv(g.U)),Atoms.fatom)>=0;
 
 if ~all(isPosDef)
@@ -87,14 +87,9 @@ if ~all(isPosDef)
     end
 end
 
-%% Calculate pdb model grouped by residue
+%% group by residue
 
-% Load the coordinates and the solvent model (one pseudo-atom for each real
-% one). The solvent model parameters were fit to the Bragg data.
-
-% sort the coordinates into groups
-
-% first, put everything order
+% first, put everything in order
 numRes = max(Atoms.resNum); %129
 
 ind = accumarray(Atoms.resNum,1:size(Atoms,1),[numRes,1],@(v) {v});
@@ -114,10 +109,9 @@ end
 P = G.tl2uxyz;
 P0 = nm.Group(Atoms.x,Atoms.y,Atoms.z,1).tl2uxyz;
 
-%% Calculate pdb model grouped by domain
+%% group by domain
 
 % sort the coordinates into groups
-
 isalpha = false(129,1);
 isalpha(5:36) = true;
 isalpha(98:129) = true;
@@ -130,7 +124,7 @@ Atoms.domain(isalpha(Atoms.resNum)) = 1;
 Atoms.domain(isbeta(Atoms.resNum)) = 2;
 Atoms.domain(ishinge(Atoms.resNum)) = 3;
 
-% assign coordinates to group operator so I can calculate projections
+% assign coordinates to group operator 
 ind = accumarray(Atoms.domain,1:size(Atoms,1),[3,1],@(v) {v});
 
 G = nm.Group.empty();
@@ -146,9 +140,8 @@ Pd = mat2cell(Pd,3*ones(size(Pd,1)/3,1),size(Pd,2));
 [~,ix] = sort(atomOrder,'ascend');
 Pd = cell2mat(Pd(ix));
 
-%%
-
 clear ind n G atomOrder
-%%
+%% save the result
+
 save model/atomic_model.mat Atoms Basis SpaceGroup P P0 Pd ktot ksol Bsol Ufit
 
