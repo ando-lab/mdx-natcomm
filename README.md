@@ -62,4 +62,4 @@ For further information, see comments in `process.m`.
 
 ## References
 
-[1]: Meisburger SP, Case DA, Ando N. (2020). Diffuse X-ray Scattering from Correlated Motions in a Protein Crystal. Nature Communications. http://dx.doi.org/10.1038/s41467-020-14933-6
+[1]: Meisburger, S.P., Case, D.A. & Ando, N. Diffuse X-ray scattering from correlated motions in a protein crystal. Nat Commun 11, 1271 (2020). https://doi.org/10.1038/s41467-020-14933-6
