@@ -10,6 +10,10 @@ function output_struct = read_xds_inp(fn)
     
     for j=1:size(output_cell,1)
         field_name = xds_inp_translate(output_cell{j,1});
+        if ~isfield(output_struct,field_name)
+            warning('skipping %s',field_name);
+            continue;
+        end
         if isempty(output_struct) || isempty(output_struct.(field_name))
             output_struct(1).(field_name) = output_cell{j,2};
         else

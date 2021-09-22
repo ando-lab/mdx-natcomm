@@ -114,6 +114,7 @@ try % START MAIN SCRIPT
                 for j=1:nIter
                     u = B.merge();
                     x2 = mean(B.cFit(u,csLambda,cizLambda,cLambda));
+                    
                     if ~isempty(options.cMin)
                         for n=1:length(B)
                             B(n).Model.c(~(B(n).Model.c>=options.cMin)) = options.cMin;
