@@ -97,7 +97,7 @@ classdef LatticeGrid
             k3 = k3(isIncl);
         end
         
-        function A = splat(obj,k1,k2,k3,distfun,addfun,initVal,X,Y,Z,varargin)
+        function [varargout] = splat(obj,k1,k2,k3,distfun,addfun,initVal,X,Y,Z,varargin)
             
             % convert to fractional coordinates
             [x,y,z] = obj.Basis.lab2frac(X,Y,Z);
@@ -109,7 +109,13 @@ classdef LatticeGrid
                 d = distfun(XX,YY,ZZ,varargin{:});
             end
             
-            A = obj.PeriodicGrid.splat(k1,k2,k3,@distfunwrapper,addfun,initVal,x,y,z,varargin{:});
+            varargout = cell([1,nargout]);
+            
+            %for j=1:nargout % do you have to initialize varargout?
+            %    varargout{j} = [];
+            %end
+            
+            [varargout{:}] = obj.PeriodicGrid.splat(k1,k2,k3,@distfunwrapper,addfun,initVal,x,y,z,varargin{:});
         end
     end
 end
