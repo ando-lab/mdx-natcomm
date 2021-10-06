@@ -20,6 +20,8 @@ classdef GaussianDensitySum
         function obj = GaussianDensitySum(a,V)
             %GAUSSIANDENSITYSUM
             
+            warning('deprecated'); 
+            
             assert(nargin==2) % a and V are required
             
             N = numel(a);

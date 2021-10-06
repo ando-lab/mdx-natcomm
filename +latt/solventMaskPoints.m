@@ -1,6 +1,8 @@
 function [r1,r2,r3,LG] = solventMaskPoints(Basis,Operators,x,y,z,r,isIon,varargin)
 %SOLVENTMASKPOINTS
 
+warning('deprecated'); 
+
 opts = struct('dgrid',0.5,'vdwProb',1.2,'ionProb',0.8,'rShrink',0.8);
 
 for j=1:2:(length(varargin)-1)

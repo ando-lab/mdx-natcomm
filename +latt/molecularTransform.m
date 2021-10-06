@@ -1,5 +1,7 @@
 function [F,R,LG,GA] = molecularTransform(x,y,z,GA,occupancy,varargin)
 
+warning('deprecated'); 
+
 % can optionally pass a lattice grid, which will override the other options
 % dgrid and osr
 opts = struct('rmax',3,'dgrid',0.5,'osr',4,'LatticeGrid',[],'Uadd',[]);
