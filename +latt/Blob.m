@@ -9,10 +9,10 @@ classdef Blob
         B = 0 % an isotropic B-factor to add (after transformation)
         scale = 1; % multiply electron density by this scale factor
     end
-    
-    properties(Dependent = true)
-        is_isotropic
-    end
+%     
+%     properties(Dependent = true)
+%         is_isotropic
+%     end
     
     methods
         function obj = Blob(a,b,A,U,B,scale)
@@ -118,6 +118,8 @@ classdef Blob
                 A = A(1,1);
             end
             
+            if numel(obj) == 1
+            
             % first special case: no added B-factors (purely isotropic)
             if numel(obj.U)==1 && obj.U==0 && obj.B==0
                 newobj = latt.Blob(obj.a,obj.b,A*obj.A,0,0,obj.scale);
@@ -139,6 +141,14 @@ classdef Blob
             % default case: B gets lumped in with U and transformed
             newobj = latt.Blob(obj.a,obj.b,A*obj.A,...
                 A*(obj.U*eye(3) + eye(3)*obj.B/(8*pi^2))*A',0,obj.scale);
+            
+            else
+                % vectorize
+                newobj = obj;
+                for j=1:numel(obj)
+                    newobj(j) = obj(j).transform(A);
+                end
+            end
             
         end
         

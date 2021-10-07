@@ -53,7 +53,10 @@ classdef ImportPDB < util.propertyValueConstructor
             
             if obj.includeAnisoTemps
                 [ia,locb] = ismember(AnisoTemps.serial,Atoms.serial);
-                assert(all(ia),'some atom records are missing?');
+                %assert(all(ia),'some atom records are missing?');
+                
+                AnisoTemps = AnisoTemps(ia,:);
+                locb = locb(ia);
                 
                 Atoms = [Atoms, array2table(NaN*ones(size(Atoms,1),6),'VariableNames',{'u11','u22','u33','u12','u13','u23'})];
                 Atoms.u11(locb) = AnisoTemps.u00*1E-4;
@@ -62,6 +65,11 @@ classdef ImportPDB < util.propertyValueConstructor
                 Atoms.u12(locb) = AnisoTemps.u01*1E-4;
                 Atoms.u13(locb) = AnisoTemps.u02*1E-4;
                 Atoms.u23(locb) = AnisoTemps.u12*1E-4;
+            end
+            
+            if obj.includeHeteroAtoms
+                HetAtoms.isHet = true(size(HetAtoms,1),1);
+                Atoms = [Atoms;HetAtoms];
             end
             
             if obj.ignoreZeroOccupancyAtoms
@@ -290,7 +298,7 @@ classdef ImportPDB < util.propertyValueConstructor
             
             rowIndices = find(~logical(referenceID));
             %ind = find_nearest_neighbors(Atoms,unassignedRows);
-
+            
             A = Atoms(:,{'x','y','z','mdxAltGroup'});
             A.isIncluded = false(size(A,1),1);
             A.isIncluded(rowIndices) = true;
@@ -299,7 +307,7 @@ classdef ImportPDB < util.propertyValueConstructor
             numAlt = size(A.mdxAltGroup,2);
             
             ind = zeros(size(A,1),1);
-
+            
             for n=1:numAlt
                 An = A(A.mdxAltGroup(:,n),:);
                 AnIncl = An(An.isIncluded,:);
@@ -333,7 +341,7 @@ classdef ImportPDB < util.propertyValueConstructor
             % column exists, which would indicate a blobbified solvent
             % mask. An ~uniform ellipsoidal form factor is used in this
             % case.
-                        
+            
             if ismember('mdxAtomicSymbol',Atoms.Properties.VariableNames)
                 % use mdxAtomicSymbol for form factor lookup
                 structureFactorType = 'mdxAtomicSymbol';
