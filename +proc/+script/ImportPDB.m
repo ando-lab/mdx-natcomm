@@ -128,7 +128,7 @@ classdef ImportPDB < util.propertyValueConstructor
                 end
             end
             
-            Atoms.mdxAtomicSymbol = mdxAtomicSymbol;
+            Atoms.mdxAtomicSymbol = categorical(mdxAtomicSymbol,obj.atomicSymbols);
             Atoms.mdxAtomicMass = mdxAtomicMass;
             Atoms.mdxVdwRadius = mdxVdwRadius;
             Atoms.mdxIsIon = mdxIsIon;
@@ -259,13 +259,32 @@ classdef ImportPDB < util.propertyValueConstructor
             A.mdxResidueCategory(isWater) = {'water'};
             
             % now, assign backbone / sidechain for protein atoms
-            isBackbone = ismember(A.name,{'C','N','O','CA'}) & A.mdxResidueCategory == 'protein';
+            isBackbone = ismember(A.name,{'C','N','O','CA','H','H2','H3','HA','HA2','HA3'}) & A.mdxResidueCategory == 'protein';
             isSidechain = ~isBackbone & A.mdxResidueCategory == 'protein';
             
             valueset = {'backbone' 'sidechain','nucleobase'}; % haven't implemented base / sugar for DNA/RNA yet
             A.mdxChemicalGroup = categorical(repmat({''},size(A,1),1),valueset);
             A.mdxChemicalGroup(isBackbone) = {'backbone'};
             A.mdxChemicalGroup(isSidechain) = {'sidechain'};
+            
+            % now, group each heteroatom with its the nearest residue
+            res = zeros(size(A,1),1);
+            isIncl = A.mdxResidueCategory == 'protein' | A.mdxResidueCategory == 'nucleic acid';
+            [~,~,res(isIncl)] = unique(A(isIncl,{'chainID','resSeq'}),'rows');
+            res = proc.script.ImportPDB.assign_by_proximity(A,res);
+            A.mdxGroupByResidue = res;
+            
+            % group atoms by nearest backbone or side-chain atom
+            res = zeros(size(A,1),1);
+            isIncl = A.mdxResidueCategory == 'protein' | A.mdxResidueCategory == 'nucleic acid';
+            [~,~,res(isIncl)] = unique(A(isIncl,{'chainID','resSeq','mdxChemicalGroup'}),'rows');
+            res = proc.script.ImportPDB.assign_by_proximity(A,res);
+            A.mdxGroupByChemicalGroup = res;
+            
+            % a warning about proc.script.ImportPDB.assign_by_proximity:
+            % it currently doesn't take symmetry into consideration, so atoms should be
+            % mapped into the asymmetric unit according to their nearest neighbor
+            % beforehand.
             
         end
         
