@@ -67,11 +67,6 @@ classdef ImportPDB < util.propertyValueConstructor
                 Atoms.u23(locb) = AnisoTemps.u12*1E-4;
             end
             
-            if obj.includeHeteroAtoms
-                HetAtoms.isHet = true(size(HetAtoms,1),1);
-                Atoms = [Atoms;HetAtoms];
-            end
-            
             if obj.ignoreZeroOccupancyAtoms
                 Atoms = Atoms(Atoms.occupancy~=0,:);
             end
@@ -356,10 +351,9 @@ classdef ImportPDB < util.propertyValueConstructor
             %
             % If the column "mdxAtomicSymbol" exists, it is used for
             % scattering factor lookup. Otherwise, the "element" column is
-            % used. If neither column exists, the code checks if a "v"
-            % column exists, which would indicate a blobbified solvent
-            % mask. An ~uniform ellipsoidal form factor is used in this
-            % case.
+            % used.
+            
+            warning('deprecated'); % <-- will move to another class
             
             if ismember('mdxAtomicSymbol',Atoms.Properties.VariableNames)
                 % use mdxAtomicSymbol for form factor lookup

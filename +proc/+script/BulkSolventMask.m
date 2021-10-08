@@ -97,8 +97,8 @@ classdef BulkSolventMask < util.propertyValueConstructor
         end
         
         function S = to_xray_structure(obj,Sol)
-            
-            
+            warning('deprecated'); % <-- will move to another class
+           
             %S = Sol(:,{'x','y','z'});
             
             params = {'v','u11','u22','u33','u12','u13','u23'};
