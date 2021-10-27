@@ -84,7 +84,7 @@ classdef CoordinateTools
             
             if ismember('u11',T.Properties.VariableNames)
                 % transform adps also
-                fprintf(1,'transforming u11, u22, ...\n');
+                % fprintf(1,'transforming u11, u22, ...\n');
                 
                 [T.u11,T.u22,T.u33,T.u12,T.u13,T.u23] = transform_adp(R,...
                     T.u11,T.u22,T.u33,T.u12,T.u13,T.u23);
