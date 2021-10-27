@@ -119,7 +119,7 @@ indh = [hsph(hasInt1,1),kgrid(hasInt1)+.5,lgrid(hasInt1)+.5;
 
 % apply symmetry limits
 indh = indh(sum((indh*Binv).^2,2) <= smax^2,:);
-    
+
 % unique list of miller indices with edges that intersect the ewald sphere
 hkl = unique([indh;indk;indl],'rows');
 
