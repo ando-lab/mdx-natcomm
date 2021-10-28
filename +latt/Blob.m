@@ -182,7 +182,12 @@ classdef Blob
             
             if numel(obj) == 1
                 newobj = latt.Blob(obj.a,obj.b,obj.A,obj.U,obj.B + B,obj.scale);
-            else % vectorize
+            elseif numel(B)>1 % vectorize
+                newobj = obj;
+                for j=1:numel(obj)
+                    newobj(j) = obj(j).addB(B(j));
+                end
+            else % add the same Bfactor to everything
                 newobj = obj;
                 for j=1:numel(obj)
                     newobj(j) = obj(j).addB(B);
@@ -268,6 +273,16 @@ classdef Blob
         %             G = latt.Blob(a,b);
         %
         %         end
+        
+        function G = debyeWallerFactor(U)
+
+            if iscell(U)
+                G = latt.Blob.empty();
+                for j=1:numel(U)
+                    G(j) = latt.Blob(1,0,[],U{j});
+                end
+            end
+        end
         
         function G = approximateSphere(radius)
             %a0 = [-0.572213, 3.488039, 77.859464, -79.775291];
