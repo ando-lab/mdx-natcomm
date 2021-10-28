@@ -154,7 +154,7 @@ classdef Blob
         
         function newobj = addU(obj,U)
             
-            if numel(obj) == 1
+            if numel(obj) == 1 && ~iscell(U)
                 
                 if xor(numel(U)==1, numel(obj.U)==1)
                     Unew = U*eye(3) + obj.U*eye(3);
