@@ -12,48 +12,6 @@ classdef CoordinateTools
     
     methods(Static = true)
         
-        function [] = neighbor_search(A,Basis,SpaceGroup,maxDist)
-            % A = Atoms() table
-            
-            a = 15; % box size
-            [A.xbin,A.ybin,A.zbin,xcen,ycen,zcen] = boxem(A.x,A.y,A.z,a);
-            [b,~,ind] = unique(A(:,{'xbin','ybin','zbin'}),'rows');
-            boxinfo = rowfun(@(n1,n2,n3) deal(xcen(n1),ycen(n2),zcen(n3)),b,...
-                'OutputVariableNames',{'xcen','ycen','zcen'});
-            ix = accumarray(ind,1:numel(ind),[],@(v) {v});
-            
-            Ops = SpaceGroup.generalPositions;
-            B = Basis.orthogonalizationMatrix;
-            xyz = table2array(A(:,{'x','y','z'}));
-            
-            T = table();
-            
-            for j=1:numel(ix)
-                Aj = A(ix{j},:);
-                rcen = table2array(boxinfo(j,{'xcen','ycen','zcen'}));
-                
-                [x,y,z,xshift,yshift,zshift,isymop,irow] = symmetry_neighbor(...
-                    rcen(:),xyz',Ops,B);
-                
-                isIncl = abs(x-rcen(1)) < (a/2 + dmax) & abs(y-rcen(2)) < (a/2 + dmax) & abs(z-rcen(3)) < (a/2 + dmax); % box
-                x = x(isIncl);
-                y = y(isIncl);
-                z = z(isIncl);
-                xshift = xshift(isIncl);
-                yshift = yshift(isIncl);
-                zshift = zshift(isIncl);
-                isymop = isymop(isIncl);
-                irow = irow(isIncl);
-                
-                Tj = table(irow,isymop,xshift,yshift,zshift,x,y,z);
-                
-                T = [T;Tj];
-                
-            end
-            
-        end
-        
-        
         
         function T = transform_atoms(T,A,B)
             
@@ -99,7 +57,7 @@ classdef CoordinateTools
             
         end
         
-
+        
         function [AtomFF,SolFF] = to_xray_structure(Atoms,Sol)
             % Convert each line in the Atoms table to an X-ray scattering
             % factor.
@@ -185,6 +143,101 @@ classdef CoordinateTools
                 'OutputFormat','uniform');
             
         end
+        
+        
+        function [nlist,nexcl] = asu_neighbor_search(x,y,z,maxpairdist,groupSele)
+            
+            xyz0 = [x(:),y(:),z(:)];
+            nlist = rangesearch(xyz0,xyz0,maxpairdist);
+            
+            if nargin < 5
+                groupSele = true(size(xyz,1),1); % only one selection, and they're all in it
+            end
+            
+            % now, filter to remove self-references and deal with alt conformers
+            nAtoms = size(xyz0,1);
+            
+            nexcl = cell(size(nlist));
+            
+            for j=1:nAtoms
+                isIncl = true(size(nlist{j}));
+                isIncl = isIncl & nlist{j} ~= j; % remove self references
+                
+                % make sure the atoms are present in the same group at least once
+                isSameGroup = any(and(groupSele(j,:),groupSele(nlist{j},:)),2);
+                isIncl = isIncl & isSameGroup';
+                
+                nexcl{j} = nlist{j}(~isIncl);
+                nlist{j} = nlist{j}(isIncl);
+                
+            end
+            
+        end
+        
+        
+        
+        function [nlist,Aout] = symmetry_neighbor_search(x,y,z,B,Ops,maxpairdist)
+            
+            xyz0 = [x(:),y(:),z(:)];
+            
+            com = mean(xyz0,1);
+            rmax = sqrt(max(sum((xyz0-com).^2,2)));
+            
+            % convert to fractional coordinates
+            maxcomdist = 2*rmax + maxpairdist;
+            
+            T = neighbor_ops(com,B,Ops,maxcomdist);
+            
+            % now, symmetry expand and filter by distance using rangesearch
+            
+            nsymop = size(T,1);
+            
+            nlist = cell(nsymop,1);
+            Aout = cell(nsymop,1);
+            
+            f0 = inv(B)*xyz0';
+            
+            for j=1:nsymop
+                fj = Ops(T.isymop(j))*f0 + [T.xshift(j);T.yshift(j);T.zshift(j)];
+                xyzj = (B*fj)';
+                n = rangesearch(xyzj,xyz0,maxpairdist);
+                if ~all(cellfun(@isempty,n))
+                    [iatom,~,c] = unique(cell2mat(n')');
+                    n = mat2cell(c,cellfun(@numel,n));
+                    nlist{j} = n;
+                    Aout{j} = [table(iatom),repmat(T(j,:),numel(iatom),1)];
+                end
+            end
+            
+            % filter
+            isIncl = ~cellfun(@isempty,nlist);
+            
+            nlist = nlist(isIncl);
+            Aout = Aout(isIncl);
+            
+            % flatten
+            nn = cellfun(@(t) size(t,1),Aout); % number of neighbors
+            nadd = cumsum([0;nn(1:(end-1))]); % index to add
+            
+            nsymop = numel(nlist);
+            
+            for j=1:nsymop
+                nlist{j} = cellfun(@(n) n + nadd(j),nlist{j},'Uni',0);
+            end
+            
+            % flatten Aout
+            Aout = vertcat(Aout{:});
+            
+            % flatten nlist
+            nlist = horzcat(nlist{:});
+            tmp = cell(size(nlist,1),1);
+            for j=1:size(nlist,1) % loop over atoms
+                tmp{j} = vertcat(nlist{j,:});
+            end
+            nlist = tmp;
+            
+        end
+        
     end
 end
 
@@ -211,58 +264,71 @@ end
 
 
 
+function T = neighbor_ops(xcen,B,Ops,dmax)
+% return a table of symmetry operators and shifted coordinates
 
-function [d,xshift,yshift,zshift,isymop,ir1] = symmdist(r0,r1,Ops,B)
+[b1,b2,b3] = bounding_box(B,xcen,dmax);
 
-% convert to fractional coordinates
-M = B'*B;
-f0 = inv(B)*r0;
-f1 = inv(B)*r1;
-
+f0 = inv(B)*xcen(:);
 nOps = numel(Ops);
-nPoints = size(r1,2);
+T = cell(nOps,1);
 
-isymop = repmat((1:nOps)',1,nPoints); % for reference
-ir1 = repmat((1:nPoints),nOps,1); % for reference
-
-d = zeros(nOps,nPoints);
-
-xshift = zeros(nOps,nPoints);
-yshift = zeros(nOps,nPoints);
-zshift = zeros(nOps,nPoints);
-
-for j=1:numel(Ops)
-    f1j = Ops(j)*f1;
-    df01 = f1j - f0;
-    shift = - floor(df01 + 1/2);
-    df01 = df01 + shift;
-    d(j,:) = sqrt(dot(df01,M*df01));
-    xshift(j,:) = shift(1,:);
-    yshift(j,:) = shift(2,:);
-    zshift(j,:) = shift(3,:);
+for j=1:nOps
+    fj = Ops(j)*f0;
+    sr1 = [ceil(b1(1)-fj(1)),floor(b1(2)-fj(1))];
+    sr2 = [ceil(b2(1)-fj(2)),floor(b2(2)-fj(2))];
+    sr3 = [ceil(b3(1)-fj(3)),floor(b3(2)-fj(3))];
+    
+    [isymop,xshift,yshift,zshift] = ndgrid(j,sr1(1):sr1(2),sr2(1):sr2(2),sr3(1):sr3(2));
+    fs = fj + [xshift(:),yshift(:),zshift(:)]';
+    isIncl = sum((B*(fs-f0)).^2,1) < dmax^2;
+    
+    % get rid of self op?
+    if Ops(j)==symm.SymmetryOperator() % if Ops(j) is the identity operator
+        isIncl(xshift==0 & yshift==0 & zshift==0) = false;
+    end
+    
+    isymop = isymop(isIncl);
+    xshift = xshift(isIncl);
+    yshift = yshift(isIncl);
+    zshift = zshift(isIncl);
+    
+    isymop = isymop(:);
+    xshift = xshift(:);
+    yshift = yshift(:);
+    zshift = zshift(:);
+    
+    T{j} = table(isymop,xshift,yshift,zshift);
 end
 
+T = vertcat(T{:});
+
 end
 
 
-function [xbin,ybin,zbin,xcen,ycen,zcen] = boxem(x,y,z,a)
+function [f1,f2,f3] = bounding_box(B,ori,rmax)
 
-[xmin,xmax] = bounds(x);
-[ymin,ymax] = bounds(y);
-[zmin,zmax] = bounds(z);
+ori = ori(:);
 
-latt.Basis(a,a,a,90,90,90);
-N = [ceil((xmax-xmin)/a),ceil((ymax-ymin)/a),ceil((zmax-zmin)/a)];
-xEdges = (xmin+xmax)/2 + a*((0:N(1)) - N(1)/2);
-yEdges = (ymin+ymax)/2 + a*((0:N(2)) - N(2)/2);
-zEdges = (zmin+zmax)/2 + a*((0:N(3)) - N(3)/2);
+v3 = cross(B(:,1),B(:,2));
+v3 = v3/norm(v3);
 
-xbin = discretize(x,xEdges);
-ybin = discretize(y,yEdges);
-zbin = discretize(z,zEdges);
+v1 = cross(B(:,2),B(:,3));
+v1 = v1/norm(v1);
 
-xcen = xEdges(1:(end-1))*.5 + xEdges(2:end)*.5;
-ycen = yEdges(1:(end-1))*.5 + yEdges(2:end)*.5;
-zcen = zEdges(1:(end-1))*.5 + zEdges(2:end)*.5;
+v2 = cross(B(:,3),B(:,1));
+v2 = v2/norm(v2);
+
+p1 = ori + [-1,1].*v1*rmax;
+p2 = ori + [-1,1].*v2*rmax;
+p3 = ori + [-1,1].*v3*rmax;
+
+f1 = inv(B)*p1;
+f2 = inv(B)*p2;
+f3 = inv(B)*p3;
+
+f1 = sort(f1(1,:),'ascend');
+f2 = sort(f2(2,:),'ascend');
+f3 = sort(f3(3,:),'ascend');
 
 end
