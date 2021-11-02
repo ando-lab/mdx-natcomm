@@ -66,7 +66,71 @@ classdef GridDesigner < util.propertyValueConstructor
             
         end
         
-
+        
+        
+        
     end
+    
+    methods(Static)
+        function s = slimit(LG)
+            B = LG.Basis.orthogonalizationMatrix;
+            P = LG.PeriodicGrid;
+            [h,k,l] = P.invert.ind2frac([1,P.N(1)],[1,P.N(2)],[1,P.N(3)]);
+            hmax = min(abs(h));
+            kmax = min(abs(k));
+            lmax = min(abs(l));
+            
+            [s] = h2slimit(B,hmax,kmax,lmax);
+        end
+        
+        
+    end
+    
 end
 
+
+
+% function [hmax,kmax,lmax] = s2hlimit(B,smax)
+% % B is the orthogonalization matrix of the unit cell
+% R = inv(B)'; % <-- ortho matrix of the reciprocal unit cell
+% 
+% v3 = cross(R(:,1),R(:,2));
+% v3 = v3/norm(v3);
+% 
+% v1 = cross(R(:,2),R(:,3));
+% v1 = v1/norm(v1);
+% 
+% v2 = cross(R(:,3),R(:,1));
+% v2 = v2/norm(v2);
+% 
+% hr = [1,0,0]*B'*v1;
+% kr = [0,1,0]*B'*v2;
+% lr = [0,0,1]*B'*v3;
+% 
+% %smax = min([hmax/hr,kmax/kr,lmax/lr]);
+% hmax = hr*smax;
+% kmax = kr*smax;
+% lmax = lr*smax;
+% 
+% end
+
+function [s] = h2slimit(B,hmax,kmax,lmax)
+% B is the orthogonalization matrix of the unit cell
+R = inv(B)'; % <-- ortho matrix of the reciprocal unit cell
+
+v3 = cross(R(:,1),R(:,2));
+v3 = v3/norm(v3);
+
+v1 = cross(R(:,2),R(:,3));
+v1 = v1/norm(v1);
+
+v2 = cross(R(:,3),R(:,1));
+v2 = v2/norm(v2);
+
+hr = [1,0,0]*B'*v1;
+kr = [0,1,0]*B'*v2;
+lr = [0,0,1]*B'*v3;
+
+s = min([hmax/hr,kmax/kr,lmax/lr]);
+
+end

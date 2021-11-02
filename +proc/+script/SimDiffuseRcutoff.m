@@ -1,26 +1,31 @@
-classdef SimulatePatterson < util.propertyValueConstructor
-    %SimulatePatterson - compute diffuse patterson by "splat" method
+classdef SimDiffuseRcutoff < util.propertyValueConstructor
+    %SimDiffuseRcutoff - compute diffuse patterson by "splat" method
     
     properties
         L
-        B
+        Basis
+        SpaceGroup
         Ops
         maxpairdist = 20
         Badd = 5
         dgrid = 0.3
         supercell = [1,1,1]
-        maxres = 1.5;
-        Bmask = 20;
-        rtrim = 3;
+    end
+    
+    properties(Dependent) % for convenience
+        B
     end
     
     methods
-        function obj = SimulatePatterson(varargin)
-            %SimulatePatterson
+        function obj = SimDiffuseRcutoff(varargin)
+            %SimDiffuseRcutoff
             obj@util.propertyValueConstructor(varargin{:});
         end
+        function val = get.B(obj)
+            val = obj.Basis.orthogonalizationMatrix;
+        end
         
-        function [SF,Ijwav,Ijkav,Ijw,Ijk] = run(obj,A,S,Basis,SpaceGroup)
+        function [SF,I_all,I_asu_intra,I_asu_inter] = run(obj,A,S)
             
             Ulatt = obj.calc_ADPs(A);
 
@@ -29,14 +34,20 @@ classdef SimulatePatterson < util.propertyValueConstructor
 
             [isym,iasu,covsym,covasu,An,Tn] = obj.precompute_neighbor_covariances(A,T);
 
-            SF = obj.design_grid(Basis,SpaceGroup);
+            SF = obj.design_grid();
 
-            [Ijwav,Ijkav,Ijw,Ijk] = obj.splat(SF,A,S,T,isym,iasu,covsym,covasu,An,Tn);
-
-            R = SF.LatticeGrid.invert();
+            [I_asu_intra,I_asu_inter] = obj.splat(SF,A,S,T,isym,iasu,covsym,covasu,An,Tn);
+            
+            % symmetrize
+            fprintf(1,'SimDiffuseRcutoff.splat: symmetrizing...\n');
+            
+            SF2 = SF;
+            SF2.SpaceGroup = SF2.SpaceGroup.PointGroup;
+            I_all = real(SF2.apply_symmetry(I_asu_intra + I_asu_inter));
+            
         end
         
-        function [Ijwav,Ijkav,Ijw,Ijk] = splat(obj,SF,A,S,T,isym,iasu,covsym,covasu,An,Tn)
+        function [Ijw,Ijk] = splat(obj,SF,A,S,T,isym,iasu,covsym,covasu,An,Tn)
             
             nAtoms = size(A,1);
             Ijk = zeros(SF.LatticeGrid.N);
@@ -46,7 +57,7 @@ classdef SimulatePatterson < util.propertyValueConstructor
 
             for j = 1:nAtoms
                 
-                fprintf(1,'SimulatePatterson.splat: %d of %d\n',j,nAtoms);
+                fprintf(1,'SimDiffuseRcutoff.splat: %d of %d\n',j,nAtoms);
                 
                 k = isym{j};
                 
@@ -98,34 +109,18 @@ classdef SimulatePatterson < util.propertyValueConstructor
                 
             end
             
-            % symmetrize
-            fprintf(1,'SimulatePatterson.splat: symmetrizing...\n');
+            % sharpen if required
+            if ~isempty(obj.Badd) && obj.Badd ~= 0
+                fprintf(1,'SimDiffuseRcutoff.splat: sharpening\n');
             
-            SF2 = SF;
-            SF2.SpaceGroup = SF2.SpaceGroup.PointGroup;
+                Fsharp = SF.calc_sharp_factor();
             
-            Ijkav = SF2.apply_symmetry(Ijk);
-            Ijwav = SF2.apply_symmetry(Ijw);
-        end
-        
-        function [dpdf,G] = postprocess(obj,R,I)
-
-            G = R.invert; 
+                Ijk = Ijk.*Fsharp.^2;
+                Ijk = Ijk.*Fsharp.^2;
+                
+            end
             
-            [sx,sy,sz] = R.grid();
-            Fsharp = latt.Blob(1,0,[],[],-obj.Badd).scatteringAmplitude(sx,sy,sz);
-            Fsharp(sx.^2 + sy.^2 + sz.^2 > obj.maxres^2) = 0;
             
-            dpdf = real(R.fft(I.*Fsharp.^2));
-            
-            [x,y,z] = G.grid();
-            rsmask = x.^2 + y.^2 + z.^2 < (obj.maxpairdist - obj.rtrim).^2;
-            
-            Fblur = latt.Blob(1,0,[],[],obj.Bmask).scatteringAmplitude(sx,sy,sz);
-            
-            rsmask = real(R.fft(G.ifft(rsmask).*Fblur));
-            
-            dpdf = dpdf.*rsmask;
         end
         
         function [isym,iasu,covsym,covasu,An,Tn] = precompute_neighbor_covariances(obj,A,T)
@@ -169,11 +164,11 @@ classdef SimulatePatterson < util.propertyValueConstructor
             P = mat2cell(P,3*ones(nAtoms,1),6);
         end
         
-        function SF = design_grid(obj,Basis,SpaceGroup)
+        function SF = design_grid(obj)
             
             G = proc.script.GridDesigner(...
-                'Basis',Basis,...
-                'SpaceGroup',SpaceGroup,...
+                'Basis',obj.Basis,...
+                'SpaceGroup',obj.SpaceGroup,...
                 'dgrid',obj.dgrid).run();
             
             G.PeriodicGrid.N = G.PeriodicGrid.N.*obj.supercell;
@@ -181,7 +176,7 @@ classdef SimulatePatterson < util.propertyValueConstructor
             
             SF =proc.script.StructureFactor(...
                 'LatticeGrid',G,...
-                'SpaceGroup',SpaceGroup,...
+                'SpaceGroup',obj.SpaceGroup,...
                 'Badd',obj.Badd); % <-- play with this?
             
         end

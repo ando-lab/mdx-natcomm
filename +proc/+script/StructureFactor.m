@@ -44,10 +44,18 @@ classdef StructureFactor < util.propertyValueConstructor
             F = obj.LatticeGrid.ifft(rho);
             
             if ~isempty(obj.Badd) % need to sharpen
-                [sx,sy,sz] = obj.LatticeGrid.invert().grid();
-                Bsharp = latt.Blob(1,0).addB(-obj.Badd);
-                F = F.*Bsharp.scatteringAmplitude(sx,sy,sz);
+                F = F.*obj.calc_sharp_factor();
             end
+            
+        end
+        
+        function F = calc_sharp_factor(obj)
+            
+            Bsharp = latt.Blob(1,0).addB(-obj.Badd);
+            [sx,sy,sz] = obj.LatticeGrid.invert().grid();
+            smax = proc.script.GridDesigner.slimit(obj.LatticeGrid);
+            F = Bsharp.scatteringAmplitude(sx,sy,sz);
+            F(sx.^2 + sy.^2 + sz.^2 > smax^2) = 0;
             
         end
         
@@ -91,6 +99,9 @@ classdef StructureFactor < util.propertyValueConstructor
             end
         end
         
+        
+        
     end
+    
 end
 
