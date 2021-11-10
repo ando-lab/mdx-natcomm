@@ -116,7 +116,7 @@ classdef SimDiffuseRcutoff < util.propertyValueConstructor
                 Fsharp = SF.calc_sharp_factor();
             
                 Ijk = Ijk.*Fsharp.^2;
-                Ijk = Ijk.*Fsharp.^2;
+                Ijw = Ijw.*Fsharp.^2;
                 
             end
             
