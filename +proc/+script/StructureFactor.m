@@ -60,12 +60,13 @@ classdef StructureFactor < util.propertyValueConstructor
         end
         
         function hklTable = create_hkl_table(obj,smax)
+            R = obj.LatticeGrid.invert;
             [h,k,l] = R.PeriodicGrid.grid();
             [sx,sy,sz] = R.Basis.frac2lab(h,k,l);
             if nargin < 2 || isempty(smax)
                 h = h(:); k = k(:); l = l(:);
             else
-                isIncl = sx.^2 + sy.^2 + sz.^2 <= obj.smax^2;
+                isIncl = sx.^2 + sy.^2 + sz.^2 <= smax^2;
                 h = h(isIncl); k = k(isIncl); l = l(isIncl);
             end
             hklTable = table(h,k,l);
