@@ -10,6 +10,7 @@ classdef SimDiffuseRcutoff < util.propertyValueConstructor
         Badd = 5
         dgrid = 0.3
         supercell = [1,1,1]
+        Bmin
     end
     
     properties(Dependent) % for convenience
@@ -29,8 +30,8 @@ classdef SimDiffuseRcutoff < util.propertyValueConstructor
             
             Ulatt = obj.calc_ADPs(A);
 
-            [A.mdxFormFactor,T] = obj.factor_out_ADPs(A.mdxFormFactor,Ulatt);
-            [S.mdxFormFactor] = obj.factor_out_ADPs(S.mdxFormFactor,Ulatt);
+            [A.mdxFormFactor,T] = obj.factor_out_ADPs(A.mdxFormFactor,Ulatt,obj.Bmin);
+            [S.mdxFormFactor] = obj.factor_out_ADPs(S.mdxFormFactor,Ulatt,obj.Bmin);
 
             [isym,iasu,covsym,covasu,An,Tn] = obj.precompute_neighbor_covariances(A,T);
 
@@ -183,21 +184,25 @@ classdef SimDiffuseRcutoff < util.propertyValueConstructor
     end
     
     methods (Static)
-        function [FF,T] = factor_out_ADPs(FF,U)
+        function [FF,T] = factor_out_ADPs(FF,U,Bmin)
+            if nargin < 3 || isempty(Bmin)
+                Bmin = 0;
+            end
+            
             % subtract ADP from atomic scattering factor
             FF = FF.addU(cellfun(@(u) -u,U,'Uni',0));
             FF = FF.partitionUB();
             
-            % if B is negative, convert to U isoU then try again
-            isValid = [FF.B] >= 0;
+            % if B is less than Bmin, convert to U isoU then try again
+            isValid = [FF.B] > Bmin;
             FF(~isValid) = FF(~isValid).toIsoU().partitionUB();
             
-            % if B is still negative, just set B to zero
-            isValid = [FF.B] >= 0;
-            FF(~isValid) = FF(~isValid).addB(-[FF(~isValid).B]);
+            % if B is still less than Bmin, just set B to Bmin
+            isValid = [FF.B] >= Bmin;
+            FF(~isValid) = FF(~isValid).addB(Bmin-[FF(~isValid).B]);
             
             % at this point, everybody should be OK
-            isValid = [FF.B] >= 0;
+            isValid = [FF.B] >= (Bmin-2*eps);
             assert(all(isValid)); % hmmmm
             
             % create Debye-Waller factor from U

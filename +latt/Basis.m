@@ -113,6 +113,10 @@ classdef Basis
             [x,y,z] = latt.Basis.transformCoordinates(inv(M),X,Y,Z);
         end
         
+        function OB = orient(obj,varargin)
+            OB = latt.OrientedBasis(obj.a,obj.b,obj.c,obj.alpha,obj.beta,obj.gamma,varargin{:});
+        end
+        
         
     end
     

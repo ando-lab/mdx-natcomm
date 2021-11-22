@@ -6,6 +6,7 @@ classdef GridDesigner < util.propertyValueConstructor
         SpaceGroup = symm.SpaceGroup.empty()
         Basis = latt.Basis(1,1,1,90,90,90)
         maxPrimeFactor = 7
+        supercell = [1,1,1]
     end
     
     methods
@@ -27,7 +28,8 @@ classdef GridDesigner < util.propertyValueConstructor
             nz = next_good_dimension(obj,obj.Basis.c/obj.dgrid,m(3));
             
             % make the lattice grid object
-            LG = latt.LatticeGrid(latt.PeriodicGrid([nx,ny,nz],[0,0,0],[1,1,1]),obj.Basis);
+            P = latt.PeriodicGrid([nx,ny,nz].*obj.supercell,[0,0,0],obj.supercell);
+            LG = latt.LatticeGrid(P,obj.Basis);
             
         end
         
