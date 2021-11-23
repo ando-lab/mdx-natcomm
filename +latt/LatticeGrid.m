@@ -37,6 +37,11 @@ classdef LatticeGrid
             [X,Y,Z] = obj.Basis.frac2lab(oriFrac(1),oriFrac(2),oriFrac(3));
             val = [X,Y,Z];
         end
+        function obj = set.ori(obj,o123)
+            [f1,f2,f3] = obj.Basis.lab2frac(o123(1),o123(2),o123(3));
+            obj.PeriodicGrid.ori = [f1,f2,f3];
+        end
+        
         function val = get.delta(obj)
             deltaFrac = diag(obj.PeriodicGrid.delta);
             [X,Y,Z] = obj.Basis.frac2lab(deltaFrac(:,1),deltaFrac(:,2),deltaFrac(:,3));

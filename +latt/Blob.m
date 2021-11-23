@@ -195,6 +195,7 @@ classdef Blob
             end
             
         end
+
         
         function newobj = toIsoU(obj)
             % replace U by trace(U)/3
@@ -250,8 +251,15 @@ classdef Blob
                 newobj = latt.Blob(obj.a,obj.b,obj.A,obj.U,obj.B,scalefactor*obj.scale);
             else % vectorize
                 newobj = obj;
-                for j=1:numel(obj)
-                    newobj(j) = obj(j).rescale(scalefactor);
+                if numel(scalefactor)==1
+                    for j=1:numel(obj)
+                        newobj(j) = obj(j).rescale(scalefactor);
+                    end
+                else % numel(scalefactor) == numel(obj)
+                    assert(numel(scalefactor)==numel(obj));
+                    for j=1:numel(obj)
+                        newobj(j) = obj(j).rescale(scalefactor(j));
+                    end
                 end
             end
         end
