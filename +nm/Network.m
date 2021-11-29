@@ -13,6 +13,7 @@ classdef Network
     
     methods
         function obj = Network(Edges,Cell,springType,springConstants)
+            warning('deprecated')
             % NETWORK 
             assert(nargin >= 2)
             obj.Edges = Edges;

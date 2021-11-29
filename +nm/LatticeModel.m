@@ -9,6 +9,7 @@ classdef LatticeModel
     end
     methods
         function obj = LatticeModel(M,K,N)%,SG)
+            warning('deprecated');
             if nargin >= 1
                 obj.M = M;
             end
