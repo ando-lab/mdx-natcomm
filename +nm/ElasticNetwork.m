@@ -1,5 +1,5 @@
 classdef ElasticNetwork < util.propertyValueConstructor
-    %ElasticNetwork vibrational dynamics using Born/Von-Karman method
+    %ElasticNetwork - calculate the Hessian matrix for TLS lattice ENM
     
     properties
         Cell  % model of the unit cell (nm.Cell type)
@@ -16,6 +16,45 @@ classdef ElasticNetwork < util.propertyValueConstructor
         end
         
         % TODO: functions to parameterize the Hessian
+        
+        function [param2k,p0] = parameterize(obj,groupType,k0)
+            if size(k0,1)==1
+                k0 = repmat(k0,size(obj.Edges,1),1);
+            end
+            switch lower(groupType)
+                case 'global'
+                    param2k = @(p) p;
+                    p0 = mean(k0,1);
+                case 'unique'
+                    T = obj.Edges;
+                    ifswitch = T.interface < 1;
+                    SpringInfo = T;
+                    SpringInfo.a1(ifswitch) = T.a2(ifswitch);
+                    SpringInfo.a2(ifswitch) = T.a1(ifswitch);
+                    SpringInfo.interface(ifswitch) = -T.interface(ifswitch);
+
+                    [~,ind0,ix] = unique(SpringInfo(:,{'interface','a1','a2'}),'rows');
+
+                    param2k = @(p) p(ix,:);
+                    p0 = k0(ind0,:);
+                case 'interface'
+                    
+                    [~,ind0,ix] = unique(abs(obj.Edges.interface));
+                    param2k = @(p) p(ix,:);
+                    p0 = k0(ind0,:);
+                case 'group'
+                    asu = obj.Cell.AsymmetricUnit;
+                    ix = cell2mat(arrayfun(@(g,n) n*ones(1,numel(g.x)),asu,1:numel(asu),'Uni',0));
+                    g1 = ix(obj.Edges.a1);
+                    g2 = ix(obj.Edges.a2);
+
+                    param2k = @(p) sqrt(p(g1,:).*p(g2,:)); % y is the coupling strength
+                    p0 = sqrt(mean(k0.^2,1));
+                otherwise
+                    error('did not recognize grouping type');
+            end
+            
+        end
         
         function V = Hessian(obj,springType,k)
             switch lower(springType)
@@ -37,14 +76,25 @@ classdef ElasticNetwork < util.propertyValueConstructor
                 kperp = repmat(kperp,size(obj.Edges,1),1);
                 kpar = repmat(kpar,size(obj.Edges,1),1);
             end
-            E_full = obj.E_full();
-            E_par = obj.E_parallel(E_full);
-            kmat_par = diag(sparse(kpar - kperp));
-            kmat_full = diag(sparse(kron(kperp(:)',[1,1,1])));
+            E = obj.E();
+            E_par = obj.E2Eparallel(E);
+            E_perp = E_par;
+            
+            gamma = kron(sqrt(kperp(:)),[1;1;1]);
+            gamma_par = sqrt(kpar(:));
+            gamma_perp = sqrt(kperp(:));
+            
+            for n=1:numel(E)
+                E{n} = gamma.*E{n};
+                E_par{n} = gamma_par.*E_par{n};
+                E_perp{n} = gamma_perp.*E_perp{n};
+            end
+            
             V = cell(size(E));
             for n = 1:numel(E)
-                V{n} = E_full{2,2,2}'*kmat_full*E_full{n} + E_par{2,2,2}'*kmat_par*E_par{n};
+                V{n} = E{2,2,2}'*E{n} + E_par{2,2,2}'*E_par{n} - E_perp{2,2,2}'*E_perp{n};
             end
+            V = obj.symavg(V);
         end
         
         function V = Hessian_parallel(obj,k)
@@ -54,12 +104,16 @@ classdef ElasticNetwork < util.propertyValueConstructor
             if numel(k)==1
                 k = repmat(k,size(obj.Edges,1),1);
             end
-            E = obj.E_parallel();
-            V = cell(size(E));
-            kmat = diag(sparse(k));
-            for n = 1:numel(E)
-                V{n} = E{2,2,2}'*kmat*E{n};
+            E = obj.E2Eparallel(obj.E);
+            gamma = sqrt(k(:));
+            for n=1:numel(E)
+                E{n} = gamma.*E{n};
             end
+            V = cell(size(E));
+            for n = 1:numel(E)
+                V{n} = E{2,2,2}'*E{n};
+            end
+            V = obj.symavg(V);
         end
         
         function V = Hessian_Gauss(obj,k)
@@ -69,15 +123,31 @@ classdef ElasticNetwork < util.propertyValueConstructor
             if numel(k)==1
                 k = repmat(k,size(obj.Edges,1),1);
             end
-            E = obj.E_full();
+            E = obj.E();
+            gamma = kron(sqrt(k(:)),[1;1;1]);
+            for n=1:numel(E)
+                E{n} = gamma.*E{n};
+            end
             V = cell(size(E));
-            kmat = diag(sparse(kron(k(:)',[1,1,1])));
             for n = 1:numel(E)
-                V{n} = E{2,2,2}'*kmat*E{n};
+                V{n} = E{2,2,2}'*E{n};
+            end
+            V = obj.symavg(V);
+        end
+        
+        function V = symavg(obj,V)
+            % compute symmetry average of V to account for small numerical errors
+            [f1,f2,f3] = obj.G_n.grid();
+            
+            for j=1:13 % the first 13 terms is a non-redundant set
+                [n1,n2,n3] = obj.G_n.frac2ind(f1(j),f2(j),f3(j));
+                [p1,p2,p3] = obj.G_n.frac2ind(-f1(j),-f2(j),-f3(j));
+                V{n1,n2,n3} = 0.5*(V{n1,n2,n3} + V{p1,p2,p3}');
+                V{p1,p2,p3} = V{n1,n2,n3}';
             end
         end
         
-        function E = E_full(obj)
+        function E = E(obj)
             P = obj.Cell.tl2uxyz();
             edgeMat = obj.edgeMatrix();
             
@@ -87,10 +157,8 @@ classdef ElasticNetwork < util.propertyValueConstructor
             end
         end
         
-        function E = E_parallel(obj,E)
-            if nargin < 2 % optionally pass E to avoid re-calculating it
-                E = obj.E_Gauss();
-            end
+        function E = E2Eparallel(obj,E)
+            
             v12 = obj.bondVectors();
             
             [r,c] = ndgrid(1:size(v12,1),1:3);
@@ -179,3 +247,5 @@ classdef ElasticNetwork < util.propertyValueConstructor
         end
     end
 end
+
+

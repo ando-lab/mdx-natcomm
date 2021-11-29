@@ -45,6 +45,26 @@ classdef LatticeDynamics < util.propertyValueConstructor
             G_sup = latt.PeriodicGrid(obj.supercell,[0,0,0],[1,1,1]).invert;
         end
         
+        
+%         function I = onePhononScattering(obj,h,k,l,G)
+%             Kinv = obj.Kinv;
+%             Kinv = shiftdim(Kinv,3);
+%             G = cat(2,G{:}); % flatten
+%             G_bz = LD.G_sup.invert;
+%             [n1,n2,n3] = G_bz.frac2ind(h(:),k(:),l(:));
+%             ind = accumarray([n1,n2,n3],1:numel(h),G_bz.N,@(v) {v});
+%             
+%             sz = size(h);
+%             I = zeros(sz);
+%             fprintf(1,'accumulating intensitites\n');
+%             for j=1:numel(ind)
+%                 fprintf(1,'k = %d of %d\n',j,numel(ind));
+%                 if isempty(ind{j}), continue; end
+%                 Gk = G(ind{j},:);
+%                 I(ind{j}) = I(ind{j}) + real(dot(Gk,Gk*conj(Kinv(:,:,j)),2));
+%             end
+%         end
+        
     end
 end
 
