@@ -15,9 +15,42 @@ classdef ElasticNetwork < util.propertyValueConstructor
             obj@util.propertyValueConstructor(varargin{:});
         end
         
+        function new_enm = coarsen(obj,ASU)
+            % replace springs between atoms with springs between the 
+            % coarse-grained reference points. All com points now
+            % belong to the same group.
+
+            if nargin < 2 || isempty(ASU)
+                % make a new asu group using points at the COM of each group            
+                xyzm = cell2mat(arrayfun(@(g) [g.com;sum(g.massvec)],obj.Cell.AsymmetricUnit,'Uni',0));
+                ASU = nm.Group(xyzm(1,:),xyzm(2,:),xyzm(3,:),xyzm(4,:));
+            else
+                assert(numel(ASU.x) == numel(obj.Cell.AsymmetricUnit));
+            end
+            
+            UC = obj.Cell;
+            UC.AsymmetricUnit = ASU;
+            
+            % convert a1, a2 to residue number instead of atom number
+            npergroup = arrayfun(@(g) numel(g.x),obj.Cell.AsymmetricUnit);
+            groupIndex = cell2mat(arrayfun(@(ix,n) ix*ones(1,n),1:numel(npergroup),npergroup,'Uni',0));
+            
+            T = obj.Edges;
+            T = T(T.interface ~= 0,:);
+            T.a1 = groupIndex(T.a1)';
+            T.a2 = groupIndex(T.a2)';
+            [~,ix] = unique(T(:,{'o1','o2','c2','a1','a2'}),'rows');
+            T = T(ix,:);
+
+            new_enm = nm.ElasticNetwork('Cell',UC,'Edges',T);
+        end
+        
         % TODO: functions to parameterize the Hessian
         
         function [param2k,p0] = parameterize(obj,groupType,k0)
+            if nargin < 3 || isempty(k0)
+                k0 = 1;
+            end
             if size(k0,1)==1
                 k0 = repmat(k0,size(obj.Edges,1),1);
             end
@@ -94,7 +127,7 @@ classdef ElasticNetwork < util.propertyValueConstructor
             for n = 1:numel(E)
                 V{n} = E{2,2,2}'*E{n} + E_par{2,2,2}'*E_par{n} - E_perp{2,2,2}'*E_perp{n};
             end
-            V = obj.symavg(V);
+            %V = obj.symavg(V);
         end
         
         function V = Hessian_parallel(obj,k)
@@ -113,7 +146,7 @@ classdef ElasticNetwork < util.propertyValueConstructor
             for n = 1:numel(E)
                 V{n} = E{2,2,2}'*E{n};
             end
-            V = obj.symavg(V);
+            %V = obj.symavg(V);
         end
         
         function V = Hessian_Gauss(obj,k)
@@ -132,14 +165,14 @@ classdef ElasticNetwork < util.propertyValueConstructor
             for n = 1:numel(E)
                 V{n} = E{2,2,2}'*E{n};
             end
-            V = obj.symavg(V);
+            %V = obj.symavg(V);
         end
         
         function V = symavg(obj,V)
             % compute symmetry average of V to account for small numerical errors
             [f1,f2,f3] = obj.G_n.grid();
             
-            for j=1:13 % the first 13 terms is a non-redundant set
+            for j=1:13 % the first 13 terms is a non-redundant set?
                 [n1,n2,n3] = obj.G_n.frac2ind(f1(j),f2(j),f3(j));
                 [p1,p2,p3] = obj.G_n.frac2ind(-f1(j),-f2(j),-f3(j));
                 V{n1,n2,n3} = 0.5*(V{n1,n2,n3} + V{p1,p2,p3}');

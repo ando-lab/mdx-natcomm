@@ -10,6 +10,9 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         interp_rmax = 4
         interp_mode = 'cubic'
         supercell = [1,1,1]
+        h
+        k
+        l
     end
     
     methods
@@ -70,11 +73,11 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
         end
         
-        function [Gk,ind] = onePhononStructureFactors(obj,AtomFF,groupid,h,k,l)
+        function [Gk,ind] = onePhononStructureFactors(obj,AtomFF,groupid)
             
-            h = h(:);
-            k = k(:);
-            l = l(:);
+            hh = obj.h(:);
+            kk = obj.k(:);
+            ll = obj.l(:);
             
             Basis = obj.Cell.Basis;
             Ops = obj.Cell.UnitCellOperators;
@@ -103,26 +106,24 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                     Op = Ops(n);
                     
                     % apply unit cell operator
-                    hkln = [h,k,l,zeros(size(h))]*Op;
+                    hkln = [hh,kk,ll,zeros(size(hh))]*Op;
                     hn = hkln(:,1);
                     kn = hkln(:,2);
                     ln = hkln(:,3);
                     pn = hkln(:,4);
                     
-                    pf = exp(2i*pi*pn);
-                    
                     [sx,sy,sz] = Basis.invert.frac2lab(hn,kn,ln);
                     
-                    pf0 = exp(2i*pi*(sx*ori(1) + sy*ori(2) + sz*ori(3)));
+                    pf = exp(2i*pi*(pn + sx*ori(1) + sy*ori(2) + sz*ori(3)));
                     
                     qx = 2*pi*sx;
                     qy = 2*pi*sy;
                     qz = 2*pi*sz;
                     
-                    Fn  = pf.*pf0.*GI(sx,sy,sz);
-                    Fxn = pf.*pf0.*GIx(sx,sy,sz);
-                    Fyn = pf.*pf0.*GIy(sx,sy,sz);
-                    Fzn = pf.*pf0.*GIz(sx,sy,sz);
+                    Fn  = pf.*GI(sx,sy,sz);
+                    Fxn = pf.*GIx(sx,sy,sz);
+                    Fyn = pf.*GIy(sx,sy,sz);
+                    Fzn = pf.*GIz(sx,sy,sz);
                     
                     % G{1,n} = [ F*qx, F*qy, F*qz, Fy*qz - Fz*qy, Fz*qx - Fx*qz, Fx*qy - Fy*qx]
                     G{g,n} = [Fn.*qx, Fn.*qy, Fn.*qz,...
@@ -133,25 +134,25 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                 end
             end
             G = cat(2,G{:}); % flatten
-            [Gk,ind] = obj.grouprowsbyk(h,k,l,G);
+            [Gk,ind] = obj.grouprowsbyk(G);
         end
         
-        function I = simulateOnePhononScattering(obj,V,AtomFF,groupid,h,k,l)
+        function I = simulateOnePhononScattering(obj,V,AtomFF,groupid)
             tic
-            [Gk,ind] = obj.onePhononStructureFactors(AtomFF,groupid,h,k,l);
+            [Gk,ind] = obj.onePhononStructureFactors(AtomFF,groupid);
             toc
             tic
             Ik = obj.onePhononScattering(V,Gk);
             toc
             tic
-            I = obj.kungroup(Ik,ind,size(h));
+            I = obj.kungroup(Ik,ind);
             toc
         end
         
-        function [Gk,ind] = grouprowsbyk(h,k,l,G)
+        function [Gk,ind] = grouprowsbyk(obj,G)
             G_bz = latt.PeriodicGrid(obj.supercell,[0,0,0],[1,1,1]).invert.invert;
-            [n1,n2,n3] = G_bz.frac2ind(h(:),k(:),l(:));
-            ind = accumarray([n1,n2,n3],1:numel(h),G_bz.N,@(v) {v});
+            [n1,n2,n3] = G_bz.frac2ind(obj.h(:),obj.k(:),obj.l(:));
+            ind = accumarray([n1,n2,n3],1:numel(obj.h),G_bz.N,@(v) {v});
             Gk = cell(obj.supercell);
             for j=1:numel(ind)
                 Gk{j} = G(ind{j},:);
@@ -169,19 +170,83 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             end
         end
         
-    end
-    
-    methods(Static)
-        
-        
-        function I = kungroup(Ik,ind,sz)
-            I = zeros(sz);
+        function I = kungroup(obj,Ik,ind)
+            I = zeros(size(obj.h));
             for j=1:numel(Ik)
                 I(ind{j}) = Ik{j};
             end
         end
         
+        function [pfit,fitinfo,history] = fitHessianToHalos(obj,I,sigma,Gk,ind,Vfun,p0,pmin,pmax,varargin)
+            
+            assert(all(size(I,[2,3,4])==obj.supercell));
+            
+            Icalc = @(p) obj.kungroup(obj.onePhononScattering(Vfun(p),Gk),ind);
+            
+            optfun = @(p) haloFitFunction(I,sigma,Icalc(p));
+            
+            [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
+        end
 
     end
-    
 end
+
+
+
+function [xfit,fitinfo,history] = run_lsqnonlin(objfun,x0,xmin,xmax,varargin)
+
+% for example:
+%varargin = {'Algorithm','trust-region-reflective',...
+%    'MaxFunctionEvaluations',1000,'UseParallel',false};
+
+history = struct('iteration',{},'x',{},'resnorm',{});
+
+opts = optimoptions(@lsqnonlin,varargin{:},'OutputFcn',@outfun);
+
+[xfit,~,~,~,fitinfo] = lsqnonlin(objfun,x0,xmin,xmax,opts);
+
+    function stop = outfun(x,optimValues,state)
+        stop = false;
+        
+        switch state
+            case 'init'
+                % do nothing
+            case 'iter'
+                % Concatenate current point and objective function
+                history = [history;...
+                    struct('iteration',optimValues.iteration,...
+                    'x',x,'resnorm',optimValues.resnorm)];
+            case 'done'
+                % do nothing
+            otherwise
+        end
+    end
+
+end
+
+
+
+function resid = haloFitFunction(I,sigma,Icalc)
+
+supercell = size(I,[2,3,4]);
+
+% fit background (constant + linear)
+G_bz = latt.PeriodicGrid(supercell,[0,0,0],[1,1,1]).invert.invert;
+[dh,dk,dl] = G_bz.grid;
+A = ones(prod(supercell),4);
+A(:,2) = dh(:);
+A(:,3) = dk(:);
+A(:,4) = dl(:);
+
+B = zeros(size(I));
+
+for jj=1:size(Icalc,1)
+    x = (A.*repmat(1./sigma(jj,:)',1,size(A,2)))\((I(jj,:) - Icalc(jj,:))./sigma(jj,:))';
+    B(jj,:) = A*x;
+end
+
+% residual
+resid = (I - Icalc - B)./sigma;
+
+end
+
