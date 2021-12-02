@@ -85,6 +85,29 @@ classdef GridDesigner < util.propertyValueConstructor
             [s] = h2slimit(B,hmax,kmax,lmax);
         end
         
+        function [Gx,Gy,Gz] = orthoslice(G,px,py,pz)
+            
+            if isa(G,'latt.PeriodicGrid')
+                [n1,n2,n3] = G.frac2ind(px,py,pz);
+                
+                Gx = G; Gx.P(1) = Gx.P(1)/Gx.N(1); Gx.N(1) = 1;
+                Gy = G; Gy.P(2) = Gy.P(2)/Gy.N(2); Gy.N(2) = 1;
+                Gz = G; Gz.P(3) = Gz.P(3)/Gz.N(3); Gz.N(3) = 1;
+                
+                [Gx.ori(1),Gy.ori(2),Gz.ori(3)] = G.ind2frac(n1,n2,n3);
+                
+            elseif isa(G,'latt.LatticeGrid')
+                [f1,f2,f3] = G.Basis.lab2frac(px,py,pz);
+                P = G.PeriodicGrid;
+                [Px,Py,Pz] = proc.script.GridDesigner.orthoslice(P,f1,f2,f3);
+                Gx = latt.LatticeGrid(Px,G.Basis);
+                Gy = latt.LatticeGrid(Py,G.Basis);
+                Gz = latt.LatticeGrid(Pz,G.Basis);
+            else
+                error('G should be latt.PeriodicGrid or latt.LatticeGrid');
+            end
+            
+        end
         
     end
     

@@ -137,17 +137,17 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             [Gk,ind] = obj.grouprowsbyk(G);
         end
         
-        function I = simulateOnePhononScattering(obj,V,AtomFF,groupid)
-            tic
-            [Gk,ind] = obj.onePhononStructureFactors(AtomFF,groupid);
-            toc
-            tic
-            Ik = obj.onePhononScattering(V,Gk);
-            toc
-            tic
-            I = obj.kungroup(Ik,ind);
-            toc
-        end
+%         function I = simulateOnePhononScattering(obj,V,AtomFF,groupid)
+%             tic
+%             [Gk,ind] = obj.onePhononStructureFactors(AtomFF,groupid);
+%             toc
+%             tic
+%             Ik = obj.onePhononScattering(V,Gk);
+%             toc
+%             tic
+%             I = obj.kungroup(Ik,ind);
+%             toc
+%         end
         
         function [Gk,ind] = grouprowsbyk(obj,G)
             G_bz = latt.PeriodicGrid(obj.supercell,[0,0,0],[1,1,1]).invert.invert;
