@@ -137,17 +137,17 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             [Gk,ind] = obj.grouprowsbyk(G);
         end
         
-%         function I = simulateOnePhononScattering(obj,V,AtomFF,groupid)
-%             tic
-%             [Gk,ind] = obj.onePhononStructureFactors(AtomFF,groupid);
-%             toc
-%             tic
-%             Ik = obj.onePhononScattering(V,Gk);
-%             toc
-%             tic
-%             I = obj.kungroup(Ik,ind);
-%             toc
-%         end
+        %         function I = simulateOnePhononScattering(obj,V,AtomFF,groupid)
+        %             tic
+        %             [Gk,ind] = obj.onePhononStructureFactors(AtomFF,groupid);
+        %             toc
+        %             tic
+        %             Ik = obj.onePhononScattering(V,Gk);
+        %             toc
+        %             tic
+        %             I = obj.kungroup(Ik,ind);
+        %             toc
+        %         end
         
         function [Gk,ind] = grouprowsbyk(obj,G)
             G_bz = latt.PeriodicGrid(obj.supercell,[0,0,0],[1,1,1]).invert.invert;
@@ -187,7 +187,66 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
         end
-
+        
+    end
+    
+    methods(Static)
+        
+        function [hklRef,hklTable] = findStrongBraggPeaks(mtzFileName,numRef,resMin,resMax)
+            
+            [hklTable,Basis] = proc.script.ImportMTZ().run(mtzFileName);
+            
+            % filter by reflection range
+            [sx,sy,sz] = Basis.invert.frac2lab(hklTable.h,hklTable.k,hklTable.l);
+            s = sqrt(sx.^2 + sy.^2 + sz.^2);
+            isIncl = 1./s >= resMin & 1./s <= resMax & ~isnan(hklTable.Fobs);
+            hklTable = hklTable(isIncl,:);
+            
+            % sort by Fobs and choose the most intense entries
+            [~,ixorder] = sort(hklTable.Fobs,'descend');
+            hklTable = hklTable(ixorder(1:numRef),:);
+            
+            hklRef = table2array(hklTable(:,{'h','k','l'}));
+            
+        end
+        
+        function [hklGrid,I,sigma] = loadBrillouinZones(h5In,dset,hklRef)
+            
+            M = io.h5.MapFile(h5In);
+            G = M.read_grid(dset);
+            ndiv = 1./G.delta;
+            G_bz = latt.PeriodicGrid(ndiv,[0,0,0],[1,1,1]).invert.invert;
+            
+            hklGrid = repmat(G_bz,size(hklRef,1),1);
+            for j=1:size(hklRef,1)
+                hklGrid(j).ori = hklGrid(j).ori + hklRef(j,:);
+            end
+            
+            I = NaN*ones([size(hklRef,1),ndiv]);
+            sigma = NaN*ones([size(hklRef,1),ndiv]);
+            
+            for j=1:size(hklRef,1)
+                ori = hklGrid(j).ori;
+                [n1,n2,n3] = G.frac2ind(ori(1),ori(2),ori(3));
+                try
+                    Ij = M.read(fullfile(dset,'I'),[n1,n2,n3],hklGrid(j).N);
+                    sigmaj = M.read(fullfile(dset,'sigma'),[n1,n2,n3],hklGrid(j).N);
+                catch EM
+                    warning('error thrown by h5read for h,k,l=%d,%d,%d:\n message = ''%''',...
+                        hklRef(j,:),EM.message);
+                    continue;
+                end
+                I(j,:,:,:) = Ij;
+                sigma(j,:,:,:) = sigmaj;
+            end
+            
+            sigma(isnan(I) | isnan(sigma)) = Inf;
+            I(isinf(sigma)) = 0;
+            
+        end
+        
+        
+        
     end
 end
 
