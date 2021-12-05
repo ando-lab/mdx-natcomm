@@ -38,8 +38,8 @@ classdef PeriodicGrid
             end
         end
         function [x,y,z] = grid(obj)
-            [n1,n2,n3] = ndgrid(1:obj.N(1),1:obj.N(2),1:obj.N(3));
-            [x,y,z] = obj.ind2frac(n1,n2,n3);
+            [x,y,z] = obj.ind2frac(1:obj.N(1),1:obj.N(2),1:obj.N(3));
+            [x,y,z] = ndgrid(x,y,z);
         end
         function [x,y,z] = ind2frac(obj,ix,iy,iz)
             x = obj.ori(1) + (ix-1)*obj.P(1)/obj.N(1);
