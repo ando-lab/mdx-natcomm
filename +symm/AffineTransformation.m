@@ -11,6 +11,9 @@ classdef AffineTransformation
     end
     properties(Dependent = true)
         fourMatrix % four matrix
+        isPureRotation
+        isPureTranslation
+        isIdentity
     end
     
     methods
@@ -38,6 +41,19 @@ classdef AffineTransformation
             
         end
         
+        function val = get.isPureRotation(obj)
+            val = all(obj.t==0);
+        end
+        
+        function val = get.isPureTranslation(obj)
+            eyecmp = obj.r==eye(3);
+            val = all(eyecmp(:));
+        end
+        
+        function val = get.isIdentity(obj)
+            val = obj.isPureRotation & obj.isPureTranslation;
+        end
+        
         function val = get.fourMatrix(obj)
             val = [obj.r, obj.t; 0,0,0,1];
         end
@@ -51,22 +67,36 @@ classdef AffineTransformation
                 t2 = obj2.t;
                 val = symm.AffineTransformation(r1*r2,r1*t2 + t1);
             elseif isnumeric(obj2) % obj2 is a vector, return a vector
+                if obj1.isIdentity % short circuit if identity operator
+                    val = obj2;
+                    return;
+                end
                 if size(obj2,1)==3 % 3-vector in. return 3-vector
-                    vecNewFull = obj1.fourMatrix*[obj2; ones(1,size(obj2,2))];
-                    val = vecNewFull(1:3,:);
-                elseif size(obj2,1)==4 % 4-vector in. return a 4-vector
-                    val = obj1.fourMatrix*obj2;
+                    if obj1.isPureRotation % for speed
+                        val = obj1.r*obj2;
+                    else
+                        vecNewFull = obj1.fourMatrix*[obj2; ones(1,size(obj2,2))];
+                        val = vecNewFull(1:3,:);
+                    end
                 else
-                    error('vector dimensions not recognized');
+                    assert(size(obj2,1)==4) % 4-vector in. return a 4-vector
+                    val = obj1.fourMatrix*obj2;
                 end
             elseif isnumeric(obj1) % obj1 is a covector, return a covector
+                if obj2.isIdentity % short circuit if identity operator
+                    val = obj1;
+                    return;
+                end
                 if size(obj1,2)==3 % 3-vector in. return 3-vector
-                    vecNewFull = [obj1, zeros(size(obj1,1),1)];
-                    val = vecNewFull(:,1:3);
-                elseif size(obj1,2)==4 % 4-vector in. return 4-vector
-                    val = obj1*obj2.fourMatrix;
+                    if obj2.isPureRotation % for speed
+                        val = obj1*obj2.r;
+                    else
+                        vecNewFull = [obj1, zeros(size(obj1,1),1)]*obj2.fourMatrix;
+                        val = vecNewFull(:,1:3);
+                    end
                 else
-                    error('vector dimensions not recognized');
+                    assert(size(obj1,2)==4) % 4-vector in. return 4-vector
+                    val = obj1*obj2.fourMatrix;
                 end
             else
                 error('argument type not recognized');

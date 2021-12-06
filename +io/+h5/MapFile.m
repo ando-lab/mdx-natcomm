@@ -1,8 +1,6 @@
 classdef MapFile < io.h5.FileInterface
     %MAP functions to read and write gridded data in H5 files
     %
-    % Note: import / export are high-level functions that assume a
-    % particular mdx-specific organization and format.
     
     methods
         function obj = MapFile(varargin)
@@ -12,6 +10,7 @@ classdef MapFile < io.h5.FileInterface
         
         function init(obj,Basis,SpaceGroup)
             init@io.h5.FileInterface(obj);
+            obj.writeatt('/','creation_date',datestr(now),'mdx_class',class(obj));
             obj.write_crystal(Basis,SpaceGroup);
         end
         
