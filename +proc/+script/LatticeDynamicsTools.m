@@ -10,23 +10,25 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         interp_rmax = 4
         interp_mode = 'cubic'
         supercell = [1,1,1]
-        h
-        k
-        l
+    end
+    properties(Dependent)
+        Basis
     end
     
     methods
         function obj = LatticeDynamicsTools(varargin)
-            %LatticeDynamicsSimulation
+            %LatticeDynamicsTools
             obj@util.propertyValueConstructor(varargin{:});
         end
         
-        function [sAxes,ori,F,Fx,Fy,Fz] = calcStructureFactorInterpolants(obj,AtomFF)
-            
-            Basis = obj.Cell.Basis;
-            if ~isa(Basis,'latt.OrientedBasis')
-                Basis = Basis.orient;
+        function B = get.Basis(obj)
+            B = obj.Cell.Basis;
+            if ~isa(B,'latt.OrientedBasis')
+                B = B.orient;
             end
+        end
+        
+        function [sAxes,ori,F,Fx,Fy,Fz] = atoms2sfgrid(obj,AtomFF)
             
             a = range(AtomFF.x)*obj.interp_osr;
             b = range(AtomFF.y)*obj.interp_osr;
@@ -65,123 +67,156 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             syv = RGrid.Basis.b*kv(:);
             szv = RGrid.Basis.c*lv(:);
             
-            %phx = exp(2i*pi*sxv*ori(1));
-            %phy = exp(2i*pi*syv*ori(2));
-            %phz = exp(2i*pi*szv*ori(3));
-            
             sAxes = {sxv,syv,szv};
             
-        end
+        end      
         
-        function [Gk,ind] = onePhononStructureFactors(obj,AtomFF,groupid)
-            
-            hh = obj.h(:);
-            kk = obj.k(:);
-            ll = obj.l(:);
-            
-            Basis = obj.Cell.Basis;
-            Ops = obj.Cell.UnitCellOperators;
-            if ~isa(Basis,'latt.OrientedBasis')
-                Basis = Basis.orient;
-            end
-            
+        function sffun = calc1PSFInterp(obj,AtomFF,groupid)
+        
             nGroups = numel(obj.Cell.AsymmetricUnit);
             assert(all(groupid <= nGroups & groupid >= 1));
             
-            nOps = numel(Ops);
-            G = cell(nGroups,nOps);
-            
-            %[s0x,s0y,s0z] = Basis.invert.frac2lab(h,k,l);
+            ori = cell(nGroups,1);
+            GI = cell(nGroups,1);
             
             for g=1:nGroups
-                A = AtomFF(groupid==g,:);
-                [sAxes,ori,F,Fx,Fy,Fz] = obj.calcStructureFactorInterpolants(A);
-                %pf0 = exp(2i*pi*(s0x*ori(1) + s0y*ori(2) + s0z*ori(3)));
-                GI = griddedInterpolant(sAxes,F,obj.interp_mode);
-                GIx = griddedInterpolant(sAxes,Fx,obj.interp_mode);
-                GIy = griddedInterpolant(sAxes,Fy,obj.interp_mode);
-                GIz = griddedInterpolant(sAxes,Fz,obj.interp_mode);
                 
-                for n=1:nOps
-                    Op = Ops(n);
-                    
-                    % apply unit cell operator
-                    hkln = [hh,kk,ll,zeros(size(hh))]*Op;
-                    hn = hkln(:,1);
-                    kn = hkln(:,2);
-                    ln = hkln(:,3);
-                    pn = hkln(:,4);
-                    
-                    [sx,sy,sz] = Basis.invert.frac2lab(hn,kn,ln);
-                    
-                    pf = exp(2i*pi*(pn + sx*ori(1) + sy*ori(2) + sz*ori(3)));
-                    
-                    qx = 2*pi*sx;
-                    qy = 2*pi*sy;
-                    qz = 2*pi*sz;
-                    
-                    Fn  = pf.*GI(sx,sy,sz);
-                    Fxn = pf.*GIx(sx,sy,sz);
-                    Fyn = pf.*GIy(sx,sy,sz);
-                    Fzn = pf.*GIz(sx,sy,sz);
-                    
-                    % G{1,n} = [ F*qx, F*qy, F*qz, Fy*qz - Fz*qy, Fz*qx - Fx*qz, Fx*qy - Fy*qx]
-                    G{g,n} = [Fn.*qx, Fn.*qy, Fn.*qz,...
-                        Fyn.*qz - Fzn.*qy,...
-                        Fzn.*qx - Fxn.*qz,...
-                        Fxn.*qy - Fyn.*qx];
-                    
+                A = AtomFF(groupid==g,:);
+                fprintf(1,'computing interpolants for group %d of %d\n',g,nGroups);
+                
+                [sAxes,ori{g},F,Fx,Fy,Fz] = obj.atoms2sfgrid(A);
+                
+                GI{g} = griddedInterpolant(sAxes,...
+                    cat(4,real(F),imag(F),real(Fx),imag(Fx),real(Fy),imag(Fy),real(Fz),imag(Fz)),...
+                    obj.interp_mode,'none');
+            end
+            
+            RBasis = obj.Basis.invert;
+            Ops = obj.Cell.UnitCellOperators;
+            
+            sffun = @(h,k,l) mysffun(h,k,l,Ops,RBasis,GI,ori);
+            
+            fprintf(1,'done\n');
+            
+            function G = mysffun(hh,kk,ll,Ops,RBasis,GI,ori)
+                nops = numel(Ops);
+                ngroups = numel(ori);
+                G = cell(nops,ngroups);
+                for grp=1:ngroups
+                    for o=1:nops
+                        hkln = [hh,kk,ll,zeros(size(hh))]*Ops(o);
+                        [sx,sy,sz] = RBasis.frac2lab(hkln(:,1),hkln(:,2),hkln(:,3));
+                        pf = exp(2i*pi*(hkln(:,4) + sx*ori{grp}(1) + sy*ori{grp}(2) + sz*ori{grp}(3)));
+                        Fa = GI{grp}(sx,sy,sz);
+                        Fn = pf.*(Fa(:,:,:,1) + 1i*Fa(:,:,:,2));
+                        Fxn = pf.*(Fa(:,:,:,3) + 1i*Fa(:,:,:,4));
+                        Fyn = pf.*(Fa(:,:,:,5) + 1i*Fa(:,:,:,6));
+                        Fzn = pf.*(Fa(:,:,:,7) + 1i*Fa(:,:,:,8));
+                        G{grp,o} = 2*pi*[...
+                            sx.*Fn,...
+                            sy.*Fn,...
+                            sz.*Fn,...
+                            Fyn.*sz - Fzn.*sy,...
+                            Fzn.*sx - Fxn.*sz,...
+                            Fxn.*sy - Fyn.*sx];
+                    end
                 end
+                G = cat(2,G{:});
             end
-            G = cat(2,G{:}); % flatten
-            [Gk,ind] = obj.grouprowsbyk(G);
         end
         
-        %         function I = simulateOnePhononScattering(obj,V,AtomFF,groupid)
-        %             tic
-        %             [Gk,ind] = obj.onePhononStructureFactors(AtomFF,groupid);
-        %             toc
-        %             tic
-        %             Ik = obj.onePhononScattering(V,Gk);
-        %             toc
-        %             tic
-        %             I = obj.kungroup(Ik,ind);
-        %             toc
-        %         end
+        function [Gk,kspace_group] = precompute1PSFs(obj,sffun,h,k,l)
+
+            [kspace_group,G_bz] = obj.kspace_groupings(h,k,l);
+            
+            Gk = cell(G_bz.N);
+            
+            nBZ = numel(Gk);
+            
+            for j=1:nBZ
+                fprintf(1,'computing 1-phonon structure factor for k-vector %d of %d\n',j,nBZ);
+                kg = kspace_group{j};
+                if isempty(kg)
+                    continue;
+                end
+                Gk{j} = sffun(h(kg),k(kg),l(kg));
+            end
+        end
+
         
-        function [Gk,ind] = grouprowsbyk(obj,G)
+        function [ind,G_bz] = kspace_groupings(obj,h,k,l)
+            
+            fprintf(1,'grouping h,k,l by k-vector\n');
+            
             G_bz = latt.PeriodicGrid(obj.supercell,[0,0,0],[1,1,1]).invert.invert;
-            [n1,n2,n3] = G_bz.frac2ind(obj.h(:),obj.k(:),obj.l(:));
-            ind = accumarray([n1,n2,n3],1:numel(obj.h),G_bz.N,@(v) {v});
-            Gk = cell(obj.supercell);
-            for j=1:numel(ind)
-                Gk{j} = G(ind{j},:);
-            end
+            
+            [n1,n2,n3] = G_bz.frac2ind(h(:),k(:),l(:));
+            
+            ind = accumarray([n1,n2,n3],1:numel(h),G_bz.N,@(v) {v});
         end
+
         
-        function Ik = onePhononScattering(obj,V,Gk)
+        function I = calc1PIntensity(obj,V,sffun,h,k,l)
+
+            [kspace_group,G_bz] = obj.kspace_groupings(h,k,l);
+            
             LD = nm.LatticeDynamics('V',V,'supercell',obj.supercell);
             Kinv = LD.Kinv;
             Kinv = shiftdim(Kinv,3);
-            Ik = cell(size(Gk));
-            for j=1:numel(Ik)
-                if isempty(Gk{j}), continue; end
-                Ik{j} = real(dot(Gk{j},Gk{j}*conj(Kinv(:,:,j)),2));
+            
+            Ik = cell(G_bz.N);
+            nBZ = numel(Ik);
+            
+            for j=1:nBZ
+                kg = kspace_group{j};
+                if isempty(kg)
+                    continue;
+                end
+                fprintf(1,'computing 1-phonon structure factor for k-vector %d of %d\n',j,nBZ);
+            
+                Gk = sffun(h(kg),k(kg),l(kg));
+                Ik{j} = real(dot(Gk,Gk*conj(Kinv(:,:,j)),2));
             end
+            
+            I = zeros(size(h));
+            for j=1:numel(Ik)
+                I(kspace_group{j}) = Ik{j};
+            end
+            
         end
         
-        function I = kungroup(obj,Ik,ind)
-            I = zeros(size(obj.h));
+        
+        function I = calc1PIntensityFrom1PSF(obj,V,Gk,ind,sz)
+            
+            LD = nm.LatticeDynamics('V',V,'supercell',obj.supercell);
+            Kinv = LD.Kinv;
+            Kinv = shiftdim(Kinv,3);
+            
+            Ik = cell(size(Gk));
+            nBZ = numel(Gk);
+            
+            for j=1:nBZ
+                if isempty(Gk{j})
+                    continue;
+                end
+                Ik{j} = real(dot(Gk{j},Gk{j}*conj(Kinv(:,:,j)),2));
+            end
+            
+            I = zeros(sz);
             for j=1:numel(Ik)
                 I(ind{j}) = Ik{j};
             end
+            
         end
         
+
         function [pfit,fitinfo,history] = fitHessianToHalos(obj,I,sigma,Gk,ind,Vfun,p0,pmin,pmax,varargin)
             
             assert(all(size(I,[2,3,4])==obj.supercell));
             
-            Icalc = @(p) obj.kungroup(obj.onePhononScattering(Vfun(p),Gk),ind);
+            sz = size(I);
+            
+            Icalc = @(p) obj.calcOnePhononIntensityFrom1PSF(Vfun(p),Gk,ind,sz);
             
             optfun = @(p) haloFitFunction(I,sigma,Icalc(p));
             
@@ -308,4 +343,5 @@ end
 resid = (I - Icalc - B)./sigma;
 
 end
+
 
