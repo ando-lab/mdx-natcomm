@@ -25,22 +25,46 @@ classdef MapTools < util.propertyValueConstructor
                 case 'structurefactor'
                     S = obj.SpaceGroup;
                 case 'patterson'
-                    S = obj.SpaceGroup.PointGroup;
+                    S = obj.SpaceGroup.LaueGroup;
                 case 'intensity'
                     S = obj.SpaceGroup.LaueGroup;
             end
         end
         
         function [newobj,resizefun] = resize(obj,mode,varargin)
-            assert(ismember(obj.type,{'intensity'})); % other types have not been implemented / tested yet
             
             switch lower(mode)
                 case 'symexpand'
+                    assert(ismember(obj.type,{'intensity'})); % other types have not been implemented / tested yet
                     Ops = obj.Symmetry.generalPositions;
                     [NewGrid,resizefun] = resize_for_symexpand(obj.Grid,Ops);
                 case 'asu'
+                    assert(ismember(obj.type,{'intensity'})); % other types have not been implemented / tested yet
                     [nmin,nmax] = mask_extents(obj.isASU);
                     [NewGrid,resizefun] = crop_grid(obj.Grid,nmin,nmax);
+                case 'radius'
+                    % note -- this can be done much more efficiently, but
+                    % I'm just going to brute force it for now
+                    assert(numel(varargin)==1);
+                    r = varargin{1};
+                    warning('inefficient code -- fix me please!');
+                    [nmin,nmax] = mask_extents(obj.spherical_mask(r));
+                    [NewGrid,resizefun] = crop_grid(obj.Grid,nmin,nmax);
+                case 'roi'
+                    if numel(varargin)==1
+                        farg = varargin{1};
+                        assert(numel(farg)==6);
+                        fmin = farg(1,3,5);
+                        fmax = farg(2,4,6);
+                    elseif numel(varargin)==2
+                        fmin = varargin{1};
+                        fmax = varargin{2};
+                    else
+                        error('incorrect number of arguments');
+                    end
+                    [NewGrid,resizefun] = resize_grid_to_bounds(obj.Grid,fmin,fmax);
+                    % roi of the form [f1min,f1max,f2min,f2max,f3min,f3max]
+                    
                 otherwise
                     error('resize mode not recognized');
             end
@@ -67,6 +91,33 @@ classdef MapTools < util.propertyValueConstructor
                     newobj.type = 'intensity';
                 case 'intensity'
                     newobj.type = 'patterson';
+            end
+        end
+        
+        function [newdata,newobj] = fourier_transform(obj,data,densityIsReal)
+            
+            if nargin < 3 || isempty(densityIsReal)
+                densityIsReal = true;
+            end
+            
+            LG = latt.LatticeGrid(obj.Grid,obj.Basis);
+            
+            newdata = data;
+            newdata(isnan(newdata)) = 0;
+            
+            newobj = obj.invert();
+            
+            switch obj.type
+                case 'density'
+                    newdata = LG.ifft(newdata);
+                case 'structurefactor'
+                    newdata = LG.fft(newdata);
+                    if densityIsReal, newdata = real(newdata); end
+                case 'patterson'
+                    newdata = LG.ifft(newdata);
+                    if densityIsReal, newdata = real(newdata); end
+                case 'intensity'
+                    newdata = real(LG.fft(newdata));
             end
         end
         
@@ -310,10 +361,53 @@ classdef MapTools < util.propertyValueConstructor
             T = table(f1(m),f2(m),f3(m),A(m),'VariableNames',colnames);
         end
         
+        function dset = read_data(obj,h5in,mapname,dsetname)
+            
+           [MT,M,mpath] = obj.fromfile(h5in,mapname);
+           
+           try
+               obj.check_compatibility(MT);
+           catch EM
+               fprintf(1,'error: grid in file is incompatible with MapTools object\n');
+               rethrow(EM);
+           end
+           % need to check that maps are equivalent somehow
+           
+           % need to figure out where to start and stop reading!
+           
+           % first, find the bounds to read
+           
+           [nmin,nmax,resizefun] = resize_for_target_grid(MT.Grid,obj.Grid);
+           
+           dset0 = M.read(fullfile(mpath,dsetname),nmin,1 + nmax - nmin);
+           
+           dset = resizefun(dset0);
+        end
+        
+        function check_compatibility(obj,MT)
+            % check whether the two map pro.script.MapTools are compatible
+            % with each other
+
+            assert(isa(MT,class(obj)))
+            assert(strcmp(obj.type,MT.type));
+            %assert(obj.isPeriodic == MT.isPeriodic);
+            %assert(obj.SpaceGroup.number == MT.SpaceGroup.number);
+            assert(obj.Basis.a == MT.Basis.a);
+            assert(obj.Basis.b == MT.Basis.b);
+            assert(obj.Basis.c == MT.Basis.c);
+            assert(obj.Basis.alpha == MT.Basis.alpha);
+            assert(obj.Basis.beta == MT.Basis.beta);
+            assert(obj.Basis.gamma == MT.Basis.gamma);
+            
+            % same grid delta
+            assert(all(round(obj.Grid.N.*MT.Grid.P) == round(obj.Grid.P.*MT.Grid.N)));
+            
+        end
+        
     end
     methods(Static)
         
-        function [MT,varargout] = import(h5in,mapname,varargin)
+        function [MT,M,mpath] = fromfile(h5in,mapname)
             M = io.h5.MapFile(h5in);
             
             if mapname(1)=='/'
@@ -343,13 +437,18 @@ classdef MapTools < util.propertyValueConstructor
                 warning('mdx_class is missing or did not match. assuming map represents electron density');
             end
             
+        end
+        
+        function [MT,varargout] = import(h5in,mapname,varargin)
+            
+            [MT,M,mpath] = proc.script.MapTools.fromfile(h5in,mapname);
+            
             varargout = cell(1,numel(varargin));
             for j=1:numel(varargin)
                 varargout{j} = M.read(fullfile(mpath,varargin{j}));
             end
         end
-        
-        
+
     end
 end
 
@@ -364,6 +463,46 @@ for n=1:nOps
     fs{n} = (Ops(n)*f')';
 end
 fs = cat(1,fs{:});
+end
+
+function [fmin,fmax] = grid_extents(G)
+
+[f1,f2,f3] = G.ind2frac([1,G.N(1)],[1,G.N(2)],[1,G.N(3)]);
+[fmin,fmax] = bounds([f1(:),f2(:),f3(:)]);
+
+end
+
+function [nmin,nmax,resizefun] = resize_for_target_grid(G_file,G_target)
+
+% first, find the bounds to read
+[fmin_target,fmax_target] = grid_extents(G_target);
+[fmin_file,fmax_file] = grid_extents(G_file);
+
+% get the bounds with respect to the file grid
+nmin_target = f2n(G_file,fmin_target);
+nmax_target = f2n(G_file,fmax_target);
+
+nmin_file = f2n(G_file,fmin_file);
+nmax_file = f2n(G_file,fmax_file);
+
+if any(nmax_target > nmax_file | nmin_target < nmin_file)
+    warning('Target grid has larger extent that data file. Will pad with NaN');
+end
+
+% now, figure out what portion of the file to read
+nmin = max(nmin_target,nmin_file);
+nmax = min(nmax_target,nmax_file);
+
+G0 = resize_grid(G_file,nmin,nmax);
+
+[~,resizefun] = resize_grid_to_bounds(G0,fmin_target,fmax_target);
+
+    function n = f2n(G,f)
+        % for convenience
+        [n_1,n_2,n_3] = G.frac2ind(f(:,1),f(:,2),f(:,3),false);
+        n = [n_1,n_2,n_3];
+    end
+
 end
 
 function [NewGrid,resizefun] = resize_for_symexpand(G,Ops)
