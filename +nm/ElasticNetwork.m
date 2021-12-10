@@ -82,7 +82,7 @@ classdef ElasticNetwork < util.propertyValueConstructor
                     g2 = ix(obj.Edges.a2);
 
                     param2k = @(p) sqrt(p(g1,:).*p(g2,:)); % y is the coupling strength
-                    p0 = sqrt(mean(k0.^2,1));
+                    p0 = repmat(sqrt(mean(k0.^2,1)),numel(asu),1);
                 otherwise
                     error('did not recognize grouping type');
             end
