@@ -216,7 +216,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
             sz = size(I);
             
-            Icalc = @(p) obj.calcOnePhononIntensityFrom1PSF(Vfun(p),Gk,ind,sz);
+            Icalc = @(p) obj.calc1PIntensityFrom1PSF(Vfun(p),Gk,ind,sz);
             
             optfun = @(p) haloFitFunction(I,sigma,Icalc(p));
             
