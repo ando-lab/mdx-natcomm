@@ -50,6 +50,20 @@ classdef MapTools < util.propertyValueConstructor
                     warning('inefficient code -- fix me please!');
                     [nmin,nmax] = mask_extents(obj.spherical_mask(r));
                     [NewGrid,resizefun] = crop_grid(obj.Grid,nmin,nmax);
+                case 'factor'
+                    if numel(varargin)==1
+                        if numel(varargin{1})==1
+                            f = [1,1,1]*varargin{1};
+                        else
+                            assert(numel(varargin{1})==3)
+                            f = varargin{1}(:)';
+                        end
+                    else
+                        assert(numel(varargin)==3)
+                        f = [varargin{1},varargin{2},varargin{3}];
+                    end
+                    [fmin,fmax] = grid_extents(obj.Grid);
+                    [NewGrid,resizefun] = resize_grid_to_bounds(obj.Grid,fmin.*f,fmax.*f);
                 case 'roi'
                     if numel(varargin)==1
                         farg = varargin{1};
@@ -64,7 +78,10 @@ classdef MapTools < util.propertyValueConstructor
                     end
                     [NewGrid,resizefun] = resize_grid_to_bounds(obj.Grid,fmin,fmax);
                     % roi of the form [f1min,f1max,f2min,f2max,f3min,f3max]
-                    
+                case 'grid'
+                    assert(numel(varargin)==1 && isa(varargin{1},'latt.PeriodicGrid'));
+                    [fmin,fmax] = grid_extents(varargin{1});
+                    [NewGrid,resizefun] = resize_grid_to_bounds(obj.Grid,fmin,fmax);
                 otherwise
                     error('resize mode not recognized');
             end
@@ -121,6 +138,12 @@ classdef MapTools < util.propertyValueConstructor
             end
         end
         
+        function [newdata,newobj] = fourier_interpolate(obj,data,ffactor)
+            [d1,M1] = obj.fourier_transform(data);
+            [M2,resizefun] = M1.resize('factor',ffactor);
+            [newdata,newobj] = M2.fourier_transform(resizefun(d1));
+        end
+        
         function msk = spherical_mask(obj,radius)
             [x,y,z] = obj.Grid.grid();
             [x,y,z] = obj.Basis.frac2lab(x,y,z);
@@ -138,6 +161,45 @@ classdef MapTools < util.propertyValueConstructor
             k = round(ndiv(2)*k);
             l = round(ndiv(3)*l);
             asumask = S.testASU(h,k,l);
+        end
+        
+        function h = export_mrc(obj,mrcfilename,M)
+            
+            % compute map extents
+            n1 = [1,obj.Grid.N(1)+1];
+            n2 = [1,obj.Grid.N(2)+1];
+            n3 = [1,obj.Grid.N(3)+1];
+            [f1,f2,f3] = obj.Grid.ind2frac(n1,n2,n3);
+            a = obj.Basis.a*(f1(2)-f1(1));
+            b = obj.Basis.b*(f2(2)-f2(1));
+            c = obj.Basis.c*(f3(2)-f3(1));
+            
+            [o1,o2,o3] = obj.Grid.frac2ind(0,0,0);
+            o = -[o1,o2,o3];
+            
+            h = io.map.initHeader();
+            h.nc = obj.Grid.N(h.mapc);
+            h.nr = obj.Grid.N(h.mapr);
+            h.ns = obj.Grid.N(h.maps);
+            h.nx = obj.Grid.N(1);
+            h.ny = obj.Grid.N(2);
+            h.nz = obj.Grid.N(3);
+            h.ispg = 0; % -1 <--- NOTE: space group is set to P1 by default... I've not figured out symmetry operators in map files yet
+            h.x_length = a;
+            h.y_length = b;
+            h.z_length = c;
+            h.alpha = obj.Basis.alpha;
+            h.beta = obj.Basis.beta;
+            h.gamma = obj.Basis.gamma;
+            
+            h.ncstart = o(h.mapc);
+            h.nrstart = o(h.mapr);
+            h.nsstart = o(h.maps);
+            
+            if nargin > 1          
+                io.map.write(mrcfilename,h,M);
+            end
+
         end
         
         function M = export(obj,h5out,mapname,varargin)
