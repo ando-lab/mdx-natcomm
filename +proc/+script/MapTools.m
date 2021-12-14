@@ -43,13 +43,15 @@ classdef MapTools < util.propertyValueConstructor
                     [nmin,nmax] = mask_extents(obj.isASU);
                     [NewGrid,resizefun] = crop_grid(obj.Grid,nmin,nmax);
                 case 'radius'
-                    % note -- this can be done much more efficiently, but
-                    % I'm just going to brute force it for now
-                    assert(numel(varargin)==1);
                     r = varargin{1};
-                    warning('inefficient code -- fix me please!');
-                    [nmin,nmax] = mask_extents(obj.spherical_mask(r));
-                    [NewGrid,resizefun] = crop_grid(obj.Grid,nmin,nmax);
+                    if numel(varargin)==1
+                        ori = [0,0,0];
+                    else
+                        ori = varargin{2};
+                    end
+                    B = obj.Basis.orthogonalizationMatrix();
+                    [fmin,fmax] = bounding_box(B,ori,r);
+                    [NewGrid,resizefun] = resize_grid_to_bounds(obj.Grid,fmin,fmax);
                 case 'factor'
                     if numel(varargin)==1
                         if numel(varargin{1})==1
@@ -145,9 +147,20 @@ classdef MapTools < util.propertyValueConstructor
         end
         
         function msk = spherical_mask(obj,radius)
+            % spherical_mask
+            %
+            % if radius is of the form [rmin,rmax] then the mask is true
+            % when rmin <= r <= rmax
+            %
             [x,y,z] = obj.Grid.grid();
             [x,y,z] = obj.Basis.frac2lab(x,y,z);
-            msk = x.*x + y.*y + z.*z <= radius^2;
+            r2 = x.*x + y.*y + z.*z;
+            if numel(radius)==1
+                msk = r2  < radius^2;
+            else
+                assert(numel(radius)==2);
+                msk = r2 < radius(2)^2 & r2 >= radius(1)^2;
+            end
         end
         
         function asumask = isASU(obj,h,k,l)
@@ -423,7 +436,7 @@ classdef MapTools < util.propertyValueConstructor
             T = table(f1(m),f2(m),f3(m),A(m),'VariableNames',colnames);
         end
         
-        function dset = read_data(obj,h5in,mapname,dsetname)
+        function varargout = read_data(obj,h5in,mapname,varargin)
             
            [MT,M,mpath] = obj.fromfile(h5in,mapname);
            
@@ -441,9 +454,12 @@ classdef MapTools < util.propertyValueConstructor
            
            [nmin,nmax,resizefun] = resize_for_target_grid(MT.Grid,obj.Grid);
            
-           dset0 = M.read(fullfile(mpath,dsetname),nmin,1 + nmax - nmin);
+           varargout = cell(size(varargin));
            
-           dset = resizefun(dset0);
+           for j=1:numel(varargin)
+                dset0 = M.read(fullfile(mpath,varargin{j}),nmin,1 + nmax - nmin);
+                varargout{j} = resizefun(dset0);
+           end
         end
         
         function check_compatibility(obj,MT)
@@ -641,3 +657,35 @@ nmax = [n1max,n2max,n3max];
 
 end
 
+
+
+% adapted from proc.script.CoordinateTools
+function [fmin,fmax] = bounding_box(B,ori,rmax)
+
+ori = ori(:);
+
+v3 = cross(B(:,1),B(:,2));
+v3 = v3/norm(v3);
+
+v1 = cross(B(:,2),B(:,3));
+v1 = v1/norm(v1);
+
+v2 = cross(B(:,3),B(:,1));
+v2 = v2/norm(v2);
+
+p1 = ori + [-1,1].*v1*rmax;
+p2 = ori + [-1,1].*v2*rmax;
+p3 = ori + [-1,1].*v3*rmax;
+
+f1 = inv(B)*p1;
+f2 = inv(B)*p2;
+f3 = inv(B)*p3;
+
+f1 = sort(f1(1,:),'ascend');
+f2 = sort(f2(2,:),'ascend');
+f3 = sort(f3(3,:),'ascend');
+
+fmin = [f1(1),f2(1),f3(1)];
+fmax = [f1(2),f2(2),f3(2)];
+
+end
