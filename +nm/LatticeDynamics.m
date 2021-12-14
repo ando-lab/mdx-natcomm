@@ -22,7 +22,11 @@ classdef LatticeDynamics < util.propertyValueConstructor
         end
         
         function K = K(obj)
-            K = inverse_fourier_transform(obj.Vfull(),obj.G_sup);
+            if all(obj.supercell==1)
+                K = obj.Vfull();
+            else
+                K = inverse_fourier_transform(obj.Vfull(),obj.G_sup);
+            end
         end
         
         function Kinv = Kinv(obj)
@@ -30,8 +34,12 @@ classdef LatticeDynamics < util.propertyValueConstructor
         end
         
         function covMat = cov_unitcell(obj)
-            covMat = mean(obj.Kinv(),[1,2,3]);
-            covMat = real(covMat);
+            if all(obj.supercell==1)
+                covMat = obj.Kinv();
+            else
+                covMat = mean(obj.Kinv(),[1,2,3]);
+                covMat = real(covMat);
+            end
             covMat = shiftdim(covMat,3);
         end
         

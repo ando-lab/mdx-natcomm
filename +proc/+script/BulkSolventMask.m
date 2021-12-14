@@ -45,6 +45,9 @@ classdef BulkSolventMask < util.propertyValueConstructor
             
             for n=1:numAlt
                 isIncl = obj.Atoms.mdxAltGroup(:,n) & ~isConsensusAtom;
+                if ~any(isIncl)
+                    continue;
+                end
                 indMaps{n} = obj.distance_map_update(isIncl,indMapConsensus,probDistConsensus);
                 indMaps{n}(~solvExclMask{n}) = 0;
             end
