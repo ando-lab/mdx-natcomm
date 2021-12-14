@@ -96,17 +96,25 @@ classdef FileInterface
                 a = h5readatt(obj.fileName,loc,att);
                 
             else % read all attributes as a struct
-            
-                hinfo = h5info(obj.fileName,loc);
-                if ~isempty(hinfo.Attributes)
-                    a = cell2struct({hinfo.Attributes.Value}',{hinfo.Attributes.Name});
-                else
-                    a = struct();
+                att_names = obj.listatt(loc);
+                a = struct();
+                for j=1:numel(att_names)
+                    a.(att_names{j}) = h5readatt(obj.fileName,loc,att_names{j});
                 end
+                
+%                 hinfo = h5info(obj.fileName,loc);
+%                 if ~isempty(hinfo.Attributes)
+%                     a = cell2struct({hinfo.Attributes.Value}',{hinfo.Attributes.Name});
+%                 else
+%                     a = struct();
+%                 end
             end
-            
-            
         end
+        
+        function a = listatt(obj,loc)
+            a = list_attributes(obj.fileName,loc);
+        end
+        
         
         function writeatt(obj,loc,varargin)
             % varargin: struct or name/value pairs
@@ -214,6 +222,38 @@ if isempty(varargin)
     s = '{}';
 else
     s = strtrim(regexprep(formattedDisplayText(varargin),{'}\s+{'},{', '}));
+end
+
+end
+
+
+
+function attr_names = list_attributes(h5filename,loc)
+
+attr_names = {};
+
+try
+
+    fid = H5F.open(h5filename);
+    
+    try
+        gid = H5G.open(fid,loc);
+        H5A.iterate(gid,[],@iterator_func);
+    catch EM1
+        H5G.close(gid);
+        rethrow(EM)
+    end
+catch EM2
+    H5F.close(fid);
+    rethrow(EM)
+end
+
+H5G.close(gid);
+H5F.close(fid);
+
+function status = iterator_func(~,attr_name)
+    status = 0;
+    attr_names = [attr_names,{attr_name}];
 end
 
 end
