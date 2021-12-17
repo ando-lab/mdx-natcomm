@@ -125,7 +125,14 @@ classdef DeltaPDFTools < util.propertyValueConstructor
         
         function [p2s,v0] = parameterize(obj)
             
-            switch lower(obj.MT_peak.SpaceGroup.Info.latticeSystem)
+            % note... I should think more carefully about the symmetries of
+            % V. But I think for now it's OK to assume that the data will
+            % tell me the symmetry. I can just use P1.
+            
+            symm = 'triclinic';
+            %symm = obj.MT_peak.SpaceGroup.Info.latticeSystem;
+            
+            switch lower(symm)
                 case 'cubic'
                     p2s = @(v) struct(...
                         'V',[v(1),0,0;...
