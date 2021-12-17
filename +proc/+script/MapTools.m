@@ -188,7 +188,7 @@ classdef MapTools < util.propertyValueConstructor
             c = obj.Basis.c*(f3(2)-f3(1));
             
             [o1,o2,o3] = obj.Grid.frac2ind(0,0,0);
-            o = -[o1,o2,o3];
+            o = 1-[o1,o2,o3];
             
             h = io.map.initHeader();
             h.nc = obj.Grid.N(h.mapc);
