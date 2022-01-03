@@ -70,8 +70,8 @@ classdef MapTools < util.propertyValueConstructor
                     if numel(varargin)==1
                         farg = varargin{1};
                         assert(numel(farg)==6);
-                        fmin = farg(1,3,5);
-                        fmax = farg(2,4,6);
+                        fmin = farg([1,3,5]);
+                        fmax = farg([2,4,6]);
                     elseif numel(varargin)==2
                         fmin = varargin{1};
                         fmax = varargin{2};
@@ -465,17 +465,19 @@ classdef MapTools < util.propertyValueConstructor
         function check_compatibility(obj,MT)
             % check whether the two map pro.script.MapTools are compatible
             % with each other
+            
+            basistol = 1E-4;
 
             assert(isa(MT,class(obj)))
             assert(strcmp(obj.type,MT.type));
             %assert(obj.isPeriodic == MT.isPeriodic);
             %assert(obj.SpaceGroup.number == MT.SpaceGroup.number);
-            assert(obj.Basis.a == MT.Basis.a);
-            assert(obj.Basis.b == MT.Basis.b);
-            assert(obj.Basis.c == MT.Basis.c);
-            assert(obj.Basis.alpha == MT.Basis.alpha);
-            assert(obj.Basis.beta == MT.Basis.beta);
-            assert(obj.Basis.gamma == MT.Basis.gamma);
+            assert(abs(obj.Basis.a - MT.Basis.a) < basistol);
+            assert(abs(obj.Basis.b - MT.Basis.b) < basistol);
+            assert(abs(obj.Basis.c - MT.Basis.c) < basistol);
+            assert(abs(obj.Basis.alpha - MT.Basis.alpha) < basistol);
+            assert(abs(obj.Basis.beta - MT.Basis.beta) < basistol);
+            assert(abs(obj.Basis.gamma - MT.Basis.gamma) < basistol);
             
             % same grid delta
             assert(all(round(obj.Grid.N.*MT.Grid.P) == round(obj.Grid.P.*MT.Grid.N)));
