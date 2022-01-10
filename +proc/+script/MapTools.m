@@ -178,6 +178,11 @@ classdef MapTools < util.propertyValueConstructor
         
         function h = export_mrc(obj,mrcfilename,M)
             
+            % symmetry info
+            S = obj.Symmetry;
+            spaceGroupNumber = S.Info.number;
+            symops = {S.generalPositions.xyzForm};
+
             % compute map extents
             n1 = [1,obj.Grid.N(1)+1];
             n2 = [1,obj.Grid.N(2)+1];
@@ -187,7 +192,7 @@ classdef MapTools < util.propertyValueConstructor
             b = obj.Basis.b*(f2(2)-f2(1));
             c = obj.Basis.c*(f3(2)-f3(1));
             
-            [o1,o2,o3] = obj.Grid.frac2ind(0,0,0);
+            [o1,o2,o3] = obj.Grid.frac2ind(0,0,0,false);
             o = 1-[o1,o2,o3];
             
             h = io.map.initHeader();
@@ -197,7 +202,6 @@ classdef MapTools < util.propertyValueConstructor
             h.nx = obj.Grid.N(1);
             h.ny = obj.Grid.N(2);
             h.nz = obj.Grid.N(3);
-            h.ispg = 0; % -1 <--- NOTE: space group is set to P1 by default... I've not figured out symmetry operators in map files yet
             h.x_length = a;
             h.y_length = b;
             h.z_length = c;
@@ -208,6 +212,10 @@ classdef MapTools < util.propertyValueConstructor
             h.ncstart = o(h.mapc);
             h.nrstart = o(h.mapr);
             h.nsstart = o(h.maps);
+            
+            h.ispg = spaceGroupNumber;%0; % -1 <--- NOTE: space group is set to P1 by default... I've not figured out symmetry operators in map files yet
+            h.nsymbt = numel(symops)*80;
+            h.sym = char(join(pad(symops,80)',2));
             
             if nargin > 1          
                 io.map.write(mrcfilename,h,M);

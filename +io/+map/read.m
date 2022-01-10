@@ -36,7 +36,7 @@ mapheader.machst = fread(fid,[1,4],'char*1=>char');
 mapheader.arms = fread(fid,[1,1],'real*4');
 mapheader.nlabl = fread(fid,[1,1],'int32');
 mapheader.label = fread(fid,[80,10],'char*1=>char')';
-mapheader.sym = fread(fid,[mapheader.nsymbt,1],'char*1=>char')';
+mapheader.sym = fread(fid,[80,mapheader.nsymbt/80],'char*1=>char')';
 
 assert(mapheader.mode==2,'only mode 2 maps have been implemented');
 npts = mapheader.nc*mapheader.nr*mapheader.ns; % number of data points to read
