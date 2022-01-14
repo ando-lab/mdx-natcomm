@@ -229,7 +229,7 @@ classdef MapTools < util.propertyValueConstructor
             kwopts = varargin((ndsets+1):end);
             
             % kw args alter opts, or get passed to M.new_dataset
-            opts = struct('append',false);
+            opts = struct('append',false,'newmap',false);
             dset_ops = {};
             for j=2:2:numel(kwopts)
                 if isfield(opts,kwopts{j-1})
@@ -247,6 +247,14 @@ classdef MapTools < util.propertyValueConstructor
                 assert(M.group_exists('/crystal'));
                 assert(M.group_exists('/maps'));
                 warning('Appending. Beware: crystal and grid parameters are not checked for consistency.');
+            elseif opts.newmap
+                assert(M.file_exists);
+                assert(M.group_exists('/crystal'));
+                if ~M.group_exists('/maps')
+                    M.addgroup('/maps');
+                end
+                warning('Creating new map in existing file. Beware: crystal is not checked for consistency.');
+            
             else
                 
                 if M.file_exists, warning('file %s exists and is being overwritten',h5out); delete(h5out); end
@@ -362,11 +370,17 @@ classdef MapTools < util.propertyValueConstructor
             gridIndex = sub2ind(obj.Grid.N,n1(isOnGrid),n2(isOnGrid),n3(isOnGrid));
         end
         
-        function varargout = table2array(obj,T,mode)
+        function varargout = table2array(obj,T,mode,mode2)
             
             if nargin < 3 || isempty(mode)
-                mode = 'direct';
+                mode = 'direct'; % or 'symexpand'
             end
+            
+            if nargin < 4 || isempty(mode2)
+                mode2 = 'replace'; % or 'mean' or 'sum'
+            end
+            
+            fprintf(1,'mode = %s, mode2 = %s\n',mode,mode2);
             
             ncols = size(T,2) - 3; % number of columns to convert
             assert(ncols > 0);
@@ -374,7 +388,7 @@ classdef MapTools < util.propertyValueConstructor
             
             % initialize outputs
             for n=1:ncols
-                varargout{n} = NaN*ones(obj.Grid.N);
+                varargout{n} = zeros(obj.Grid.N);
             end
             
             switch lower(mode)
@@ -396,7 +410,10 @@ classdef MapTools < util.propertyValueConstructor
                     end
                     
                     Ops = obj.Symmetry.generalPositions;
+                    
                     x0 = table2array(T(:,1:3));
+                    
+                    N = zeros(obj.Grid.N);
                     
                     for j=1:numel(Ops)
                         xj = symfun(Ops(j),x0);
@@ -407,10 +424,33 @@ classdef MapTools < util.propertyValueConstructor
                             phaseFactor = 1;
                         end
                         
+                        N(ind) = N(ind) + 1;
+                        
                         for n=1:ncols
-                            varargout{n}(ind) = phaseFactor.*T.(3 + n)(isIncl);
+                            
+                            switch mode2
+                                case 'replace'
+                                    varargout{n}(ind) = phaseFactor.*T.(3 + n)(isIncl);
+                                case 'mean'
+                                    varargout{n}(ind) = varargout{n}(ind) + phaseFactor.*T.(3 + n)(isIncl);
+                                otherwise
+                                    error('mode2 not recognized');
+                            end
                         end
                     end
+                    
+                    % post-processing
+                    switch mode2
+                        case 'mean'
+                            for n=1:ncols
+                                varargout{n} = varargout{n}./N;
+                            end
+                        case 'replace'
+                            for n=1:ncols
+                                varargout{n}(~logical(N)) = NaN;
+                            end
+                    end
+                    
                 otherwise
                     error('mode not recognized');
             end
@@ -476,8 +516,13 @@ classdef MapTools < util.propertyValueConstructor
             
             basistol = 1E-4;
 
-            assert(isa(MT,class(obj)))
-            assert(strcmp(obj.type,MT.type));
+            if ~isa(MT,class(obj))
+                warning('class mismatch');
+            end
+            if ~strcmp(obj.type,MT.type)
+                warning('type mismatch');
+            end
+            
             %assert(obj.isPeriodic == MT.isPeriodic);
             %assert(obj.SpaceGroup.number == MT.SpaceGroup.number);
             assert(abs(obj.Basis.a - MT.Basis.a) < basistol);
