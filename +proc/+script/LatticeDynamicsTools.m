@@ -242,18 +242,17 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         end
 
         function V = calcLatticeCovfromHessian(obj,Hessian,ProjectionOperator,massweights)
+            ngroups = size(ProjectionOperator,1)/3;
+            w = ones([1,1,ngroups]);
+            
             if nargin < 4 || isempty(massweights)
-                w = ones(size(ProjectionOperator,1),1);
-            else
-                w = kron(massweights(:),[1;1;1]);
+                w(:) = w(:).*massweights(:);
             end
-            w = w/sum(w);
-            ProjectionOperator = w.*ProjectionOperator;
             
             LD = nm.LatticeDynamics('V',Hessian,'supercell',obj.supercell);
             C = LD.cov_supercell();
             C = shiftdim(mat2cell(C,size(C,1),size(C,2),ones(size(C,3),1),ones(size(C,4),1),ones(size(C,5),1)),2);
-            V = cellfun(@(c) sum(get_diag_projection(c,ProjectionOperator),3),C,'Uni',0);
+            V = cellfun(@(c) sum(w.^2.*get_diag_projection(c,ProjectionOperator),3)/sum(w.^2),C,'Uni',0);
         end
         
         function [pfit,fitinfo,history] = fitHessianToLatticeCov(obj,Vobs,weights,avgsub,Vfun,p0,pmin,pmax,varargin)
