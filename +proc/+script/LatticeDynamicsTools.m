@@ -223,6 +223,53 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
         end
         
+        function [P,massweights] = calcProjectionOperator(obj,toCOM)
+            if nargin < 2 || isempty(toCOM)
+                toCOM = true;
+            end
+            
+            UC = obj.Cell;
+            
+            if toCOM
+                coms = arrayfun(@(g) [g.com; sum(g.massvec)],UC.AsymmetricUnit,'Uni',0);
+                UC.AsymmetricUnit = cellfun(@(v) nm.Group(v(1),v(2),v(3),v(4)),coms);
+            end
+            
+            P = UC.tl2uxyz;
+            
+            massweights = repmat([UC.AsymmetricUnit.massvec],1,numel(UC.SpaceGroup.generalPositions));
+
+        end
+
+        function V = calcLatticeCovfromHessian(obj,Hessian,ProjectionOperator,massweights)
+            if nargin < 4 || isempty(massweights)
+                w = ones(size(ProjectionOperator,1),1);
+            else
+                w = kron(massweights(:),[1;1;1]);
+            end
+            w = w/sum(w);
+            ProjectionOperator = w.*ProjectionOperator;
+            
+            LD = nm.LatticeDynamics('V',Hessian,'supercell',obj.supercell);
+            C = LD.cov_supercell();
+            C = shiftdim(mat2cell(C,size(C,1),size(C,2),ones(size(C,3),1),ones(size(C,4),1),ones(size(C,5),1)),2);
+            V = cellfun(@(c) sum(get_diag_projection(c,ProjectionOperator),3),C,'Uni',0);
+        end
+        
+        function [pfit,fitinfo,history] = fitHessianToLatticeCov(obj,Vobs,weights,avgsub,Vfun,p0,pmin,pmax,varargin)
+            
+            % by default, use the center of mass of the ASU groups to
+            % compute this guy?
+            [P,mw] = obj.calcProjectionOperator(true);
+            
+            Vcalc = @(p) obj.calcLatticeCovfromHessian(Vfun(p),P,mw);
+            
+            optfun = @(p) covFitFun(Vcalc(p),Vobs,weights,avgsub);
+            
+            [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
+        end
+
+        
     end
     
     methods(Static)
@@ -345,3 +392,38 @@ resid = (I - Icalc - B)./sigma;
 end
 
 
+
+
+function Md = get_diag_projection(C,Pcom)
+
+npts = size(Pcom,1)/3;
+
+Md = zeros(3,3,npts);
+
+for n=1:npts
+   n1start = (n-1)*3 + 1;
+   n1stop = n1start + 3 - 1;
+   Pn = Pcom(n1start:n1stop,:);
+   Md(:,:,n) = Pn*C*Pn';
+end
+
+end
+
+
+function resid = covFitFun(Vcalc,Vobs,weights,avgsub)
+
+if nargin < 4 || isempty(avgsub)
+    avgsub = true;
+end
+
+idx = find(triu(ones(3,3)));
+
+Vdiff = cellfun(@(vcalc,vobs) vcalc(idx)-vobs(idx),Vcalc,Vobs,'Uni',0);
+resid = cat(2,Vdiff{:});
+
+if avgsub
+    resid = resid - mean(resid,2); % remove offset (i.e. global aniso scaling)
+end
+resid = resid.*(weights(:)');
+
+end
