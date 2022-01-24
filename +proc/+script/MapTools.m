@@ -514,7 +514,7 @@ classdef MapTools < util.propertyValueConstructor
             % check whether the two map pro.script.MapTools are compatible
             % with each other
             
-            basistol = 1E-4;
+            basistol = 1E-3;
 
             if ~isa(MT,class(obj))
                 warning('class mismatch');
@@ -525,12 +525,12 @@ classdef MapTools < util.propertyValueConstructor
             
             %assert(obj.isPeriodic == MT.isPeriodic);
             %assert(obj.SpaceGroup.number == MT.SpaceGroup.number);
-            assert(abs(obj.Basis.a - MT.Basis.a) < basistol);
-            assert(abs(obj.Basis.b - MT.Basis.b) < basistol);
-            assert(abs(obj.Basis.c - MT.Basis.c) < basistol);
-            assert(abs(obj.Basis.alpha - MT.Basis.alpha) < basistol);
-            assert(abs(obj.Basis.beta - MT.Basis.beta) < basistol);
-            assert(abs(obj.Basis.gamma - MT.Basis.gamma) < basistol);
+            assert(abs(obj.Basis.a - MT.Basis.a)/obj.Basis.a < basistol);
+            assert(abs(obj.Basis.b - MT.Basis.b)/obj.Basis.b < basistol);
+            assert(abs(obj.Basis.c - MT.Basis.c)/obj.Basis.c < basistol);
+            assert(abs(obj.Basis.alpha - MT.Basis.alpha)/obj.Basis.alpha < basistol);
+            assert(abs(obj.Basis.beta - MT.Basis.beta)/obj.Basis.beta < basistol);
+            assert(abs(obj.Basis.gamma - MT.Basis.gamma)/obj.Basis.gamma < basistol);
             
             % same grid delta
             assert(all(round(obj.Grid.N.*MT.Grid.P) == round(obj.Grid.P.*MT.Grid.N)));
