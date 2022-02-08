@@ -431,7 +431,7 @@ classdef MapTools < util.propertyValueConstructor
                             switch mode2
                                 case 'replace'
                                     varargout{n}(ind) = phaseFactor.*T.(3 + n)(isIncl);
-                                case 'mean'
+                                case {'mean','sum'}
                                     varargout{n}(ind) = varargout{n}(ind) + phaseFactor.*T.(3 + n)(isIncl);
                                 otherwise
                                     error('mode2 not recognized');
@@ -445,7 +445,7 @@ classdef MapTools < util.propertyValueConstructor
                             for n=1:ncols
                                 varargout{n} = varargout{n}./N;
                             end
-                        case 'replace'
+                        case {'replace','sum'}
                             for n=1:ncols
                                 varargout{n}(~logical(N)) = NaN;
                             end

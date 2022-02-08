@@ -46,12 +46,16 @@ classdef ImportPDB < util.propertyValueConstructor
             [Crystal,Atoms,HetAtoms,AnisoTemps,headerLines]  = io.pdb.read(fileName);
             Atoms.isHet = false(size(Atoms,1),1);
             
-            if obj.includeHeteroAtoms
+            if all(isnan(Atoms.occupancy)) % assign default value of 1 if empty
+                Atoms.occupancy(:) = 1;
+            end
+            
+            if obj.includeHeteroAtoms && ~isempty(HetAtoms)
                 HetAtoms.isHet = true(size(HetAtoms,1),1);
                 Atoms = [Atoms;HetAtoms];
             end
             
-            if obj.includeAnisoTemps
+            if obj.includeAnisoTemps && ~isempty(AnisoTemps)
                 [ia,locb] = ismember(AnisoTemps.serial,Atoms.serial);
                 %assert(all(ia),'some atom records are missing?');
                 
@@ -174,7 +178,7 @@ classdef ImportPDB < util.propertyValueConstructor
             %assert(~hasAlternates & logical(altgroup_ind(1,:)),'this should never happen');
             
             % now, assign each atom record to one or more alternate conformer groups
-            numAlts = numel(altCode);
+            numAlts = max(numel(altCode),1);
             mdxAltGroup = false([size(Atoms,1),numAlts]);
             
             for j=1:size(altgroup_ind,1)
