@@ -21,6 +21,14 @@ classdef LatticeDynamics < util.propertyValueConstructor
             Vfull = expand2array(obj.V,G_n,G);
         end
         
+        function V = K2V(obj,K)
+            V = fourier_transform(K,obj.G_sup.invert);
+        end
+        
+        function K = V2K(obj,V)
+            K = inverse_fourier_transform(V,obj.G_sup);
+        end
+        
         function K = K(obj)
             if all(obj.supercell==1)
                 K = obj.Vfull();
