@@ -6,6 +6,7 @@ classdef Group
         y
         z
         mass = 1 % mass (default value = 1)
+        ori = []; % optional origin
     end
     properties(Dependent = true)
         massvec % a vector of masses
@@ -96,8 +97,19 @@ classdef Group
             Pn = {};
             for n=1:numGroups
                 thisobj = obj(n);
-                Pn = [Pn; arrayfun(@(r1,r2,r3) kron(sparse(1,n,1,1,numGroups),[speye(3),-1*cmat(r1,r2,r3)]),...
-                    thisobj.x(:),thisobj.y(:),thisobj.z(:),'UniformOutput',false)];
+                X = thisobj.x(:);
+                Y = thisobj.y(:);
+                Z = thisobj.z(:);
+                
+                if ~isempty(thisobj.ori)
+                    X = X - thisobj.ori(1);
+                    Y = Y - thisobj.ori(2);
+                    Z = Z - thisobj.ori(3);
+                end
+                
+                shiftop = sparse(1,n,1,1,numGroups);
+                thisP = arrayfun(@(r1,r2,r3) kron(shiftop,[speye(3),-1*cmat(r1,r2,r3)]),X,Y,Z,'Uni',0);
+                Pn = [Pn; thisP];
             end
             P = cell2mat(Pn);
         end

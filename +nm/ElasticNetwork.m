@@ -15,6 +15,39 @@ classdef ElasticNetwork < util.propertyValueConstructor
             obj@util.propertyValueConstructor(varargin{:});
         end
         
+        function new_enm = regroup(obj,group_assignments)
+            ngroups = max(group_assignments);
+            nres = numel(obj.Cell.AsymmetricUnit);
+            
+            assert(numel(group_assignments) == nres);
+            group_assignments = group_assignments(:);
+            
+            atoms_per_residue = arrayfun(@(g) numel(g.x),obj.Cell.AsymmetricUnit);
+            grouped_indices = mat2cell(1:sum(atoms_per_residue),1,atoms_per_residue);
+            
+            regrouped_indices = accumarray(group_assignments,(1:nres)',[ngroups,1],@(v) {cat(2,grouped_indices{v})});
+
+            [~,index_map] = sort(cell2mat(regrouped_indices')','ascend');
+            
+            atoms_per_domain = cellfun(@numel,regrouped_indices);
+            domain_map = cell2mat(arrayfun(@(sz,d) repmat(d,sz,1),atoms_per_domain,(1:numel(atoms_per_domain))','Uni',0));
+
+            x = [obj.Cell.AsymmetricUnit.x];
+            y = [obj.Cell.AsymmetricUnit.y];
+            z = [obj.Cell.AsymmetricUnit.z];
+            massvec = [obj.Cell.AsymmetricUnit.massvec];
+            
+            G = cellfun(@(ind) nm.Group(x(ind),y(ind),z(ind),massvec(ind)),regrouped_indices');
+            
+            new_enm = obj;
+            new_enm.Cell.AsymmetricUnit = G;
+            new_enm.Edges.a1 = index_map(new_enm.Edges.a1);
+            new_enm.Edges.a2 = index_map(new_enm.Edges.a2);
+            isInternal = domain_map(new_enm.Edges.a1) == domain_map(new_enm.Edges.a2);
+            new_enm.Edges = new_enm.Edges(~isInternal,:); % prune the edge matrix
+
+        end
+        
         function new_enm = coarsen(obj,ASU)
             % replace springs between atoms with springs between the 
             % coarse-grained reference points. All com points now

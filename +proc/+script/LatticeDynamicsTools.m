@@ -267,6 +267,25 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
         end
+        
+        function [pfit,fitinfo,history] = fitHessianToCov(obj,Cobs,weights,Vfun,p0,pmin,pmax,varargin)
+
+            Vcalc = @(p) nm.LatticeDynamics('V',Vfun(p),'supercell',obj.supercell).cov_supercell;
+
+            optfun = @(p) (Vcalc(p) - Cobs).*weights;
+            
+            [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
+        end
+        
+        function [pfit,fitinfo,history] = fitHessianToADPs(obj,Uobs,Vfun,p0,pmin,pmax,varargin)
+            % Uobs is a cell array of 3x3 matrices (U)
+            Uobs = cat(3,Uobs{:}); % <- turn into a 3x3xN
+            P = obj.Cell.AsymmetricUnit.tl2uxyz;
+                        
+            optfun = @(p) Uobs - calcUfromHessian(Vfun(p),P,obj.supercell);
+            
+            [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
+        end
 
         
     end
@@ -364,6 +383,16 @@ opts = optimoptions(@lsqnonlin,varargin{:},'OutputFcn',@outfun);
 
 end
 
+function U = calcUfromHessian(H,P,supercell)
+% returns a 3x3xN matrix
+C = nm.LatticeDynamics('V',H,supercell).cov_unitcell;
+nc = size(P,2);
+
+U = get_diag_projection(C(1:nc,1:nc),P);
+
+%P = mat2cell(P,3*ones(size(P,1)/3,1),nc);
+%U = cellfun(@(p) p*C(1:nc,1:nc)*p',P,'Uni',0);
+end
 
 
 function resid = haloFitFunction(I,sigma,Icalc)
