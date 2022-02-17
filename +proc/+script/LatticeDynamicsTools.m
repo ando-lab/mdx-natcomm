@@ -285,6 +285,10 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             optfun = @(p) Uobs - calcUfromHessian(Vfun(p),P,obj.supercell);
             
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
+            
+            %H = Vfun(pfit);
+            %Ucalc = calcUfromHessian(Vfun(pfit),P,obj.supercell);
+            %Ucalc = mat2cell(Ucalc,3,3,ones(size(Ucalc,3),1));
         end
 
         
@@ -385,7 +389,7 @@ end
 
 function U = calcUfromHessian(H,P,supercell)
 % returns a 3x3xN matrix
-C = nm.LatticeDynamics('V',H,supercell).cov_unitcell;
+C = nm.LatticeDynamics('V',H,'supercell',supercell).cov_unitcell;
 nc = size(P,2);
 
 U = get_diag_projection(C(1:nc,1:nc),P);

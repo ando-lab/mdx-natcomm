@@ -43,7 +43,7 @@ classdef ElasticNetwork < util.propertyValueConstructor
             new_enm.Cell.AsymmetricUnit = G;
             new_enm.Edges.a1 = index_map(new_enm.Edges.a1);
             new_enm.Edges.a2 = index_map(new_enm.Edges.a2);
-            isInternal = domain_map(new_enm.Edges.a1) == domain_map(new_enm.Edges.a2);
+            isInternal = new_enm.Edges.interface == 0 & domain_map(new_enm.Edges.a1) == domain_map(new_enm.Edges.a2);
             new_enm.Edges = new_enm.Edges(~isInternal,:); % prune the edge matrix
 
         end
