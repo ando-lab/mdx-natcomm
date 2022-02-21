@@ -4,6 +4,7 @@ classdef LatticeDynamics < util.propertyValueConstructor
     properties
         V % cell array of Hessian matrices for 3x3x3 array of nearest neighbors
         supercell = [1,1,1]
+        M % matrix of generalized masses
     end
     properties(Dependent)
         G_sup
@@ -38,7 +39,7 @@ classdef LatticeDynamics < util.propertyValueConstructor
         end
         
         function Kinv = Kinv(obj)
-            Kinv = pseudo_inverse(obj.K(),obj.G_sup);
+            Kinv = pseudo_inverse(obj.K(),obj.G_sup,full(obj.M));
         end
         
         function covMat = cov_unitcell(obj)
@@ -143,16 +144,25 @@ function X = inverse_fourier_transform(Y,G)
      X = X/prod(R.delta);
 end
 
-function Kinv = pseudo_inverse(K,G_sup)
+function Kinv = pseudo_inverse(K,G_sup,M)
     [o1,o2,o3] = G_sup.frac2ind(0,0,0);
     Kinv = zeros(size(K));
     for n1=1:size(K,1)
         for n2=1:size(K,2)
             for n3=1:size(K,3)
+                Kn = squeeze(K(n1,n2,n3,:,:));
                 if all([n1,n2,n3]==[o1,o2,o3])
-                    Kinv(n1,n2,n3,:,:) = pinv(squeeze(K(n1,n2,n3,:,:)));
+                    try
+                    [v,d] = eig(0.5*(Kn+Kn'),0.5*(M+M'),'vec');
+                    catch EM
+                        disp(size(M));
+                        rethrow(EM)
+                    end
+                    d(1:3) = Inf;
+                    Kinv(n1,n2,n3,:,:) = v*diag(1./d)*v';
+                    %Kinv(n1,n2,n3,:,:) = pinv(Kn);
                 else
-                    Kinv(n1,n2,n3,:,:) = inv(squeeze(K(n1,n2,n3,:,:)));
+                    Kinv(n1,n2,n3,:,:) = inv(Kn);
                 end
             end
         end

@@ -4,11 +4,13 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
     
     properties
         Cell
+        M
         interp_osr = 4
         interp_dgrid = 0.5
         interp_Badd = 5
         interp_rmax = 4
         interp_mode = 'cubic'
+        addLinearBackground = true;
         supercell = [1,1,1]
     end
     properties(Dependent)
@@ -82,9 +84,20 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             for g=1:nGroups
                 
                 A = AtomFF(groupid==g,:);
+                tlsori = obj.Cell.AsymmetricUnit(g).ori;
+                if isempty(tlsori)
+                    tlsori = [0,0,0];
+                end
+                
+                    A.x = A.x - tlsori(1);
+                    A.y = A.y - tlsori(2);
+                    A.z = A.z - tlsori(3);
+                    
                 fprintf(1,'computing interpolants for group %d of %d\n',g,nGroups);
                 
                 [sAxes,ori{g},F,Fx,Fy,Fz] = obj.atoms2sfgrid(A);
+                
+                ori{g} = ori{g} + tlsori(:)';
                 
                 GI{g} = griddedInterpolant(sAxes,...
                     cat(4,real(F),imag(F),real(Fx),imag(Fx),real(Fy),imag(Fy),real(Fz),imag(Fz)),...
@@ -160,7 +173,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
 
             [kspace_group,G_bz] = obj.kspace_groupings(h,k,l);
             
-            LD = nm.LatticeDynamics('V',V,'supercell',obj.supercell);
+            LD = nm.LatticeDynamics('V',V,'supercell',obj.supercell,'M',obj.M);
             Kinv = LD.Kinv;
             Kinv = shiftdim(Kinv,3);
             
@@ -176,6 +189,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
                 Gk = sffun(h(kg),k(kg),l(kg));
                 Ik{j} = real(dot(Gk,Gk*conj(Kinv(:,:,j)),2));
+                %Ik{j} = dot(Gk,Gk*conj(Kinv(:,:,j)),2);
             end
             
             I = zeros(size(h));
@@ -188,7 +202,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         
         function I = calc1PIntensityFrom1PSF(obj,V,Gk,ind,sz)
             
-            LD = nm.LatticeDynamics('V',V,'supercell',obj.supercell);
+            LD = nm.LatticeDynamics('V',V,'supercell',obj.supercell,'M',obj.M);
             Kinv = LD.Kinv;
             Kinv = shiftdim(Kinv,3);
             
@@ -218,7 +232,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
             Icalc = @(p) obj.calc1PIntensityFrom1PSF(Vfun(p),Gk,ind,sz);
             
-            optfun = @(p) haloFitFunction(I,sigma,Icalc(p));
+            optfun = @(p) haloFitFunction(I,sigma,Icalc(p),obj.addLinearBackground);
             
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
         end
@@ -249,7 +263,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                 w(:) = w(:).*massweights(:);
             end
             
-            LD = nm.LatticeDynamics('V',Hessian,'supercell',obj.supercell);
+            LD = nm.LatticeDynamics('V',Hessian,'supercell',obj.supercell,'M',obj.M);
             C = LD.cov_supercell();
             C = shiftdim(mat2cell(C,size(C,1),size(C,2),ones(size(C,3),1),ones(size(C,4),1),ones(size(C,5),1)),2);
             V = cellfun(@(c) sum(w.^2.*get_diag_projection(c,ProjectionOperator),3)/sum(w.^2),C,'Uni',0);
@@ -270,7 +284,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         
         function [pfit,fitinfo,history] = fitHessianToCov(obj,Cobs,weights,Vfun,p0,pmin,pmax,varargin)
 
-            Vcalc = @(p) nm.LatticeDynamics('V',Vfun(p),'supercell',obj.supercell).cov_supercell;
+            Vcalc = @(p) nm.LatticeDynamics('V',Vfun(p),'supercell',obj.supercell,'M',obj.M).cov_supercell;
 
             optfun = @(p) (Vcalc(p) - Cobs).*weights;
             
@@ -282,7 +296,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             Uobs = cat(3,Uobs{:}); % <- turn into a 3x3xN
             P = obj.Cell.AsymmetricUnit.tl2uxyz;
                         
-            optfun = @(p) Uobs - calcUfromHessian(Vfun(p),P,obj.supercell);
+            optfun = @(p) Uobs - calcUfromHessian(Vfun(p),obj.M,P,obj.supercell);
             
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
             
@@ -387,9 +401,9 @@ opts = optimoptions(@lsqnonlin,varargin{:},'OutputFcn',@outfun);
 
 end
 
-function U = calcUfromHessian(H,P,supercell)
+function U = calcUfromHessian(H,M,P,supercell)
 % returns a 3x3xN matrix
-C = nm.LatticeDynamics('V',H,'supercell',supercell).cov_unitcell;
+C = nm.LatticeDynamics('V',H,'supercell',supercell,'M',M).cov_unitcell;
 nc = size(P,2);
 
 U = get_diag_projection(C(1:nc,1:nc),P);
@@ -399,17 +413,26 @@ U = get_diag_projection(C(1:nc,1:nc),P);
 end
 
 
-function resid = haloFitFunction(I,sigma,Icalc)
+function resid = haloFitFunction(I,sigma,Icalc,addLinearBackground)
+
+if nargin < 4 || isempty(addLinearBackground)
+    addLinearBackground = true;
+end
 
 supercell = size(I,[2,3,4]);
 
 % fit background (constant + linear)
 G_bz = latt.PeriodicGrid(supercell,[0,0,0],[1,1,1]).invert.invert;
 [dh,dk,dl] = G_bz.grid;
-A = ones(prod(supercell),4);
-A(:,2) = dh(:);
-A(:,3) = dk(:);
-A(:,4) = dl(:);
+
+if addLinearBackground
+    A = ones(prod(supercell),4);
+    A(:,2) = dh(:);
+    A(:,3) = dk(:);
+    A(:,4) = dl(:);
+else
+    A = ones(prod(supercell),1);
+end
 
 B = zeros(size(I));
 
