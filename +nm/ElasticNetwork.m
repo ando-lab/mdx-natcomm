@@ -4,6 +4,7 @@ classdef ElasticNetwork < util.propertyValueConstructor
     properties
         Cell  % model of the unit cell (nm.Cell type)
         Edges % Table of cell edges, as produced by Cell.contactSearch()
+        altgroup = [];
     end
     properties(Constant)
         G_n = latt.PeriodicGrid([3,3,3],[-1,-1,-1],[3,3,3]);
@@ -15,7 +16,7 @@ classdef ElasticNetwork < util.propertyValueConstructor
             obj@util.propertyValueConstructor(varargin{:});
         end
         
-        function new_enm = regroup(obj,group_assignments)
+        function [new_enm,index_map] = regroup(obj,group_assignments)
             ngroups = max(group_assignments);
             nres = numel(obj.Cell.AsymmetricUnit);
             
@@ -25,10 +26,12 @@ classdef ElasticNetwork < util.propertyValueConstructor
             atoms_per_residue = arrayfun(@(g) numel(g.x),obj.Cell.AsymmetricUnit);
             grouped_indices = mat2cell(1:sum(atoms_per_residue),1,atoms_per_residue);
             
+            original_groups = cell2mat(arrayfun(@(n,g) g*ones(1,n), atoms_per_residue, 1:nres,'Uni',0));
+            
             regrouped_indices = accumarray(group_assignments,(1:nres)',[ngroups,1],@(v) {cat(2,grouped_indices{v})});
 
             [~,index_map] = sort(cell2mat(regrouped_indices')','ascend');
-            
+
             atoms_per_domain = cellfun(@numel,regrouped_indices);
             domain_map = cell2mat(arrayfun(@(sz,d) repmat(d,sz,1),atoms_per_domain,(1:numel(atoms_per_domain))','Uni',0));
 
@@ -45,7 +48,7 @@ classdef ElasticNetwork < util.propertyValueConstructor
             new_enm.Edges.a2 = index_map(new_enm.Edges.a2);
             isInternal = new_enm.Edges.interface == 0 & domain_map(new_enm.Edges.a1) == domain_map(new_enm.Edges.a2);
             new_enm.Edges = new_enm.Edges(~isInternal,:); % prune the edge matrix
-
+            new_enm.altgroup = original_groups(index_map); % <-- this might be wrong... need to test it.
         end
         
         function new_enm = coarsen(obj,ASU)
@@ -80,7 +83,30 @@ classdef ElasticNetwork < util.propertyValueConstructor
         
         % TODO: functions to parameterize the Hessian
         
+        function EdgeInfo = calc_edge_info(obj)
+            EdgeInfo = obj.Edges(:,{'a1','a2','interface'});
+            
+            % sort atom indices (a1 <= a2)
+            ifswitch = EdgeInfo.a1 > EdgeInfo.a2;
+            tmp = EdgeInfo;
+            EdgeInfo.a1(ifswitch) = tmp.a2(ifswitch);
+            EdgeInfo.a2(ifswitch) = tmp.a1(ifswitch);
+            
+            % ignore distinction between +/- interfaces
+            EdgeInfo.interface = abs(EdgeInfo.interface);
+            
+            % add group labels
+            asu = obj.Cell.AsymmetricUnit;
+            ix = cell2mat(arrayfun(@(g,n) n*ones(numel(g.x),1),asu(:),(1:numel(asu))','Uni',0));
+            EdgeInfo.g1 = ix(EdgeInfo.a1);
+            EdgeInfo.g2 = ix(EdgeInfo.a2);
+            
+        end
+        
         function [param2k,p0] = parameterize(obj,groupType,k0)
+            
+            EdgeInfo = obj.calc_edge_info;
+            
             if nargin < 3 || isempty(k0)
                 k0 = 1;
             end
@@ -92,30 +118,27 @@ classdef ElasticNetwork < util.propertyValueConstructor
                     param2k = @(p) p;
                     p0 = mean(k0,1);
                 case 'unique'
-                    T = obj.Edges;
-                    ifswitch = T.interface < 1;
-                    SpringInfo = T;
-                    SpringInfo.a1(ifswitch) = T.a2(ifswitch);
-                    SpringInfo.a2(ifswitch) = T.a1(ifswitch);
-                    SpringInfo.interface(ifswitch) = -T.interface(ifswitch);
-
-                    [~,ind0,ix] = unique(SpringInfo(:,{'interface','a1','a2'}),'rows');
-
+                    [~,ind0,ix] = unique(EdgeInfo(:,{'interface','a1','a2'}),'rows');
+                    param2k = @(p) p(ix,:);
+                    p0 = k0(ind0,:);
+                case 'uniquealtgroup'
+                    tmp = EdgeInfo;
+                    ix = obj.altgroup(:);
+                    tmp.g1 = ix(tmp.a1);
+                    tmp.g2 = ix(tmp.a2);
+                    [~,ind0,ix] = unique(tmp(:,{'interface','g1','g2'}),'rows');
                     param2k = @(p) p(ix,:);
                     p0 = k0(ind0,:);
                 case 'interface'
-                    
-                    [~,ind0,ix] = unique(abs(obj.Edges.interface));
+                    [~,ind0,ix] = unique(EdgeInfo.interface);
                     param2k = @(p) p(ix,:);
                     p0 = k0(ind0,:);
                 case 'group'
-                    asu = obj.Cell.AsymmetricUnit;
-                    ix = cell2mat(arrayfun(@(g,n) n*ones(1,numel(g.x)),asu,1:numel(asu),'Uni',0));
-                    g1 = ix(obj.Edges.a1);
-                    g2 = ix(obj.Edges.a2);
-
+                    g1 = EdgeInfo.g1;
+                    g2 = EdgeInfo.g2;
                     param2k = @(p) sqrt(p(g1,:).*p(g2,:)); % y is the coupling strength
-                    p0 = repmat(sqrt(mean(k0.^2,1)),numel(asu),1);
+                    ngroups = numel(obj.Cell.AsymmetricUnit);
+                    p0 = repmat(sqrt(mean(k0.^2,1)),ngroups,1);
                 otherwise
                     error('did not recognize grouping type');
             end
