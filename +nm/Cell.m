@@ -6,6 +6,7 @@ classdef Cell
         Basis = latt.Basis.empty(); % basis vectors of the unit cell
         SpaceGroup = symm.SpaceGroup.empty(); % space group
         mapToCell = true; % if true, makes sure that COM is mapped to unit cell. otherwise, UnitCellOperators returns general positions
+        asuCenter = []; % asu origin to override COM calculation
     end
     properties (Dependent = true)
         UnitCellOperators
@@ -69,7 +70,13 @@ classdef Cell
             
             B = obj.B;
             
-            r0com = com(obj.AsymmetricUnit);
+            if isempty(obj.asuCenter)
+            
+                r0com = com(obj.AsymmetricUnit);
+            else
+                r0com = obj.asuCenter(:);
+            end
+            
             r0comfrac = inv(B)*r0com; % in fractional coordinates
             
             
