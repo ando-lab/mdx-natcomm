@@ -12,7 +12,7 @@ classdef ElasticNetworkTools < util.propertyValueConstructor
     end
     properties(Dependent)
         com % compute the center of mass
-        M
+        M % by default, return the
     end
     
     methods
@@ -26,12 +26,36 @@ classdef ElasticNetworkTools < util.propertyValueConstructor
             val = G.com;
         end
         
+        function M = calc_M(obj,mode1,mode2)
+            if nargin < 2 || isempty(mode1)
+                mode1 = 'grouped';
+            end
+            if nargin < 3 || isempty(mode2)
+                mode2 = 'cell';
+            end
+            switch lower(mode1)
+                case 'grouped'
+                    G = obj.group_atoms();
+                case 'ungrouped'
+                    G = obj.table2group(obj.Atoms);
+                otherwise
+                    error('mode1 not recognized');
+            end
+            M = G.tlmass;
+            switch lower(mode2)
+                case 'cell'
+                    ncellops = numel(obj.UnitCellOperators);
+                    M = kron(speye(ncellops),M);
+                case 'asu'
+                    % do nothing
+                otherwise
+                    error('mode2 not recognized');
+            end
+        end
+        
         function val = get.M(obj)
-            % matrix of generalized masses for the asymmetric unit
-            G = obj.table2group(obj.Atoms);
-            M1 = G.tlmass;
-            ncellops = numel(obj.UnitCellOperators);
-            val = kron(speye(ncellops),M1);
+            % for compatibility with earlier scripts
+            val = obj.calc_M('ungrouped','cell');
         end
         
         function CellOps = map_operators_to_cell(obj,Ops,asucenter)
@@ -128,6 +152,14 @@ classdef ElasticNetworkTools < util.propertyValueConstructor
             
             Tasu = obj.internalContactSearch();
             
+            nr = size(Tasu,1);
+            c2 = zeros(nr,3);
+            interface = zeros(nr,1);
+            o1 = ones(nr,1);
+            o2 = ones(nr,1);
+            
+            Tasu = [table(o1,o2,c2,interface),Tasu];
+            
             T = repmat({Tasu},numel(obj.UnitCellOperators),1);
             for j=1:size(T,1)
                 T{j}.o1(:) = j;
@@ -163,12 +195,20 @@ classdef ElasticNetworkTools < util.propertyValueConstructor
         function [T,G,index,Tg] = contacts2nodes(obj,T)
             nodes = unique([T.a1;T.a2]);
             
-            nodemap = accumarray(nodes,1:numel(nodes),[size(obj.Atoms,1),1],@max);
+            isNode = ismember((1:size(obj.Atoms,1))',nodes);
+            
+            [G,index,Tg] = obj.group_atoms(isNode);
+            
+            ind = cat(1,index{:});
+            if ~isempty(ind) 
+                nodemap = accumarray(ind,1:numel(ind),[size(obj.Atoms,1),1],@max);
+            else % special case where T is empty
+                nodemap = [];
+            end
             
             T.a1 = nodemap(T.a1);
             T.a2 = nodemap(T.a2);
             
-            [G,index,Tg] = obj.group_atoms(logical(nodemap));
         end
         
         function [group_assignments,Tg] = find_atom_groups(obj)
@@ -198,6 +238,12 @@ classdef ElasticNetworkTools < util.propertyValueConstructor
             if nargin > 1 && ~isempty(isIncl)
                 grp = grp(isIncl);
                 ind0 = ind0(isIncl);
+            end
+            
+            if isempty(grp)
+                G = nm.Group([],[],[],[]);
+                index = {};
+                return;
             end
             
             assert(all(~isnan(grp)))
