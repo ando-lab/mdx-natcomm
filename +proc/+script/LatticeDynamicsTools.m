@@ -30,6 +30,48 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             end
         end
         
+        function [sAxes,ori,F,Fx,Fy,Fz] = map2sfgrid(obj,rho,MapGrid,MapBasis,tlsori)
+            % EXPERIMENTAL FEATURE!
+            assert(MapBasis.alpha==90 & MapBasis.beta==90 & MapBasis.gamma==90); % required for now
+                        
+            MT = proc.script.MapTools('Grid',MapGrid,'Basis',MapBasis,'type','density','isPeriodic',false);
+            [x,y,z] = MT.Grid.grid();
+            [x,y,z] = MT.Basis.frac2lab(x,y,z);
+            x = x-tlsori(1);
+            y = y-tlsori(2);
+            z = z-tlsori(3);
+            
+            ori0 = MT.Grid.ori;
+            MT.Grid = MT.Grid.invert.invert; % re-center the grid
+            oshift = ori0 - MT.Grid.ori;
+            [ox,oy,oz] = MT.Basis.frac2lab(oshift(1),oshift(2),oshift(3));
+            ori = [ox,oy,oz];
+            
+            [MT,resizefun] = MT.resize('factor',obj.interp_osr);
+            rho = resizefun(rho);
+            x = resizefun(x);
+            y = resizefun(y);
+            z = resizefun(z);
+            
+            [F,MTr] = MT.fourier_transform(rho);
+            Fx = MT.fourier_transform(rho.*x);
+            Fy = MT.fourier_transform(rho.*y);
+            Fz = MT.fourier_transform(rho.*z);
+            
+            [MTr,cropfun] = MTr.resize('radius',0.5/obj.interp_dgrid);
+            F = cropfun(F);
+            Fx = cropfun(Fx);
+            Fy = cropfun(Fy);
+            Fz = cropfun(Fz);
+            
+            [hv,kv,lv] = MTr.Grid.ind2frac(1:MTr.Grid.N(1),1:MTr.Grid.N(2),1:MTr.Grid.N(3));
+            sxv = MTr.Basis.a*hv(:);
+            syv = MTr.Basis.b*kv(:);
+            szv = MTr.Basis.c*lv(:);
+            
+            sAxes = {sxv,syv,szv};
+        end
+        
         function [sAxes,ori,F,Fx,Fy,Fz] = atoms2sfgrid(obj,AtomFF)
             
             a = range(AtomFF.x)*obj.interp_osr;
@@ -71,7 +113,39 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
             sAxes = {sxv,syv,szv};
             
-        end      
+        end
+        
+        function sffun = calc1PSFInterpFromMap(obj,rho,MapGrid,MapBasis)
+            % EXPERIMENTAL
+            
+            % for now, this only supports one rigid group. In future, 
+            % will implement segmented maps
+            nGroups = numel(obj.Cell.AsymmetricUnit);
+            assert(nGroups==1);
+            
+            ori = cell(nGroups,1);
+            GI = cell(nGroups,1);
+            
+            g = 1;
+            
+            tlsori = obj.Cell.AsymmetricUnit(g).ori;
+            if isempty(tlsori)
+                tlsori = [0,0,0];
+            end
+            
+            fprintf(1,'computing interpolants for group %d of %d\n',g,nGroups);
+                
+            [sAxes,ori{g},F,Fx,Fy,Fz] = obj.map2sfgrid(rho,MapGrid,MapBasis,tlsori);
+            
+            GI{g} = griddedInterpolant(sAxes,...
+                    cat(4,real(F),imag(F),real(Fx),imag(Fx),real(Fy),imag(Fy),real(Fz),imag(Fz)),...
+                    obj.interp_mode,'none');
+                
+            sffun = obj.interpolant2sffun(GI,ori);
+            
+            fprintf(1,'done\n');
+            
+        end
         
         function sffun = calc1PSFInterp(obj,AtomFF,groupid)
         
@@ -103,6 +177,14 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                     cat(4,real(F),imag(F),real(Fx),imag(Fx),real(Fy),imag(Fy),real(Fz),imag(Fz)),...
                     obj.interp_mode,'none');
             end
+            
+            sffun = obj.interpolant2sffun(GI,ori);
+            
+            fprintf(1,'done\n');
+            
+        end
+        
+        function sffun = interpolant2sffun(obj,GI,ori)
             
             RBasis = obj.Basis.invert;
             Ops = obj.Cell.UnitCellOperators;
@@ -136,6 +218,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                 end
                 G = cat(2,G{:});
             end
+            
         end
         
         function [Gk,kspace_group] = precompute1PSFs(obj,sffun,h,k,l)

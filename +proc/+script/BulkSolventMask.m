@@ -205,7 +205,7 @@ classdef BulkSolventMask < util.propertyValueConstructor
             
         end
         
-        function isSolventExcluded = solvent_excluded_region(obj,probDistASU)
+        function [isSolventExcluded,isAccessible] = solvent_excluded_region(obj,probDistASU)
             
             neighborOps = setdiff(obj.SpaceGroup.generalPositions,symm.SymmetryOperator());
             

@@ -241,11 +241,11 @@ try
         H5A.iterate(gid,[],@iterator_func);
     catch EM1
         H5G.close(gid);
-        rethrow(EM)
+        rethrow(EM1)
     end
 catch EM2
     H5F.close(fid);
-    rethrow(EM)
+    rethrow(EM2)
 end
 
 H5G.close(gid);

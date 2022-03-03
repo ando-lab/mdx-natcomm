@@ -23,9 +23,9 @@ classdef MapTools < util.propertyValueConstructor
                 case 'density'
                     S = obj.SpaceGroup;
                 case 'structurefactor'
-                    S = obj.SpaceGroup;
+                    S = obj.SpaceGroup; % <<<???
                 case 'patterson'
-                    S = obj.SpaceGroup.LaueGroup;
+                    S = obj.SpaceGroup.LaueGroup; % <<<???
                 case 'intensity'
                     S = obj.SpaceGroup.LaueGroup;
             end
@@ -418,8 +418,8 @@ classdef MapTools < util.propertyValueConstructor
                     for j=1:numel(Ops)
                         xj = symfun(Ops(j),x0);
                         [ind,isIncl] = obj.frac2ind(xj(:,1),xj(:,2),xj(:,3));
-                        if size(xj,1)==4
-                            phaseFactor = exp(2i*pi*xj(isIncl,4));
+                        if size(xj,2)==4
+                            phaseFactor = exp(-2i*pi*xj(isIncl,4)); % changed to negative on Mar 2, 2022
                         else
                             phaseFactor = 1;
                         end
