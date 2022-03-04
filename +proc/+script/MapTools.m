@@ -31,6 +31,24 @@ classdef MapTools < util.propertyValueConstructor
             end
         end
         
+        function [newobj,shiftfun] = shift(obj,newori)
+            % shift to new grid origin
+            [n1,n2,n3] = obj.Grid.frac2ind(newori(1),newori(2),newori(3),false);
+            [o1,o2,o3] = obj.Grid.ind2frac(n1,n2,n3);
+            NewGrid = obj.Grid;
+            NewGrid.ori = [o1,o2,o3];
+            
+            if obj.isPeriodic
+                shiftfun = @(M) circshift(M,1-[n1,n2,n3]);
+                newobj = obj;
+                newobj.Grid = NewGrid;
+            else
+                warning('MapTools is not periodic. Performing a resize instead');
+                [newobj,shiftfun] = obj.resize('grid',NewGrid);
+            end
+            
+        end
+        
         function [newobj,resizefun] = resize(obj,mode,varargin)
             
             switch lower(mode)
@@ -113,6 +131,33 @@ classdef MapTools < util.propertyValueConstructor
             end
         end
         
+        function newdata = inverse_fourier_transform(obj,varargin)
+            % This will 'undo' the effects of fourier_transform.
+            %
+            % If the map grids are centered (Grid = Grid.invert.invert)
+            % then this is the same as running fourier_transform twice.
+            %
+            % If they are not centered, then inverse_fourier_tansform can
+            % will shift the map to recover the original choice of origin.
+            %
+            % The object that calls inverse_fourier_transform represents
+            % the map type of the output. For example, if the MapTools
+            % object MT is of type "density",
+            %
+            % [F,MTf] = MT.fourier_transform(rho)
+            % 
+            % F is the structure factor and MTf is type "structurefactor"
+            %
+            % We can recover rho by calling:
+            %
+            % rho = MT.inverse_fourier_transform(F);
+            
+            [newdata,MTr] = obj.invert.fourier_transform(varargin{:});
+            [~,shiftfun] = MTr.shift(obj.Grid.ori);
+            newdata = shiftfun(newdata);
+            
+        end
+        
         function [newdata,newobj] = fourier_transform(obj,data,densityIsReal)
             
             if nargin < 3 || isempty(densityIsReal)
@@ -144,7 +189,12 @@ classdef MapTools < util.propertyValueConstructor
             [d1,M1] = obj.fourier_transform(data);
             [M2,resizefun] = M1.resize('factor',ffactor);
             [newdata,newobj] = M2.fourier_transform(resizefun(d1));
+            if obj.isPeriodic
+                [newobj,shiftfun] = newobj.shift(obj.Grid.ori);
+                newdata = shiftfun(newdata);
+            end
         end
+        
         
         function msk = spherical_mask(obj,radius)
             % spherical_mask
