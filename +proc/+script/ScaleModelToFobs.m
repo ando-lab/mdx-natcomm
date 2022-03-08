@@ -33,11 +33,13 @@ classdef ScaleModelToFobs < util.propertyValueConstructor
             obj@util.propertyValueConstructor(varargin{:});
         end
         
-        function params = run(obj,hklTable)
+        function [params,Fmodel,Fscale] = run(obj,hklTable)
             % GO!
             
             [hklTable.sx,hklTable.sy,hklTable.sz] = obj.Basis.invert.frac2lab(hklTable.h,hklTable.k,hklTable.l);
-            hklTable = hklTable(~isnan(hklTable.Fobs),:); % get rid of NaNs
+            
+            isIncl = ~isnan(hklTable.Fobs);
+            T = hklTable(isIncl,:); % get rid of NaNs
             
             [numParams,param2struct] = obj.parameterize_model();
             
@@ -48,13 +50,16 @@ classdef ScaleModelToFobs < util.propertyValueConstructor
             Taniso = @(s) latt.Blob(1,0).addU(s.U).rescale(s.ktot);
             
             fmodel = @(s,t) t.Fatom + Tsol(s).scatteringAmplitude(t.sx,t.sy,t.sz).*t.Fsol;
-            residfun = @(s,t) (t.Fobs - Taniso(s).scatteringAmplitude(t.sx,t.sy,t.sz).*abs(fmodel(s,t)))./t.sigmaFobs;
+            mscale = @(s,t) Taniso(s).scatteringAmplitude(t.sx,t.sy,t.sz);
+            residfun = @(s,t) (t.Fobs - mscale(s,t).*abs(fmodel(s,t)))./t.sigmaFobs;
             
             opts = optimoptions('lsqnonlin','MaxFunctionEvaluations',obj.maxFunEval,'FunctionTolerance',obj.FunctionTolerance);
             
-            solvFit = lsqnonlin(@(v) residfun(param2struct(v/1000),hklTable),1000*initialParams,[],[],opts);
+            solvFit = lsqnonlin(@(v) residfun(param2struct(v/1000),T),1000*initialParams,[],[],opts);
             
             params = param2struct(solvFit/1000);
+            Fmodel = fmodel(params,hklTable);
+            Fscale = mscale(params,hklTable);
         end
         
         function [numParams,param2struct] = parameterize_model(obj)
