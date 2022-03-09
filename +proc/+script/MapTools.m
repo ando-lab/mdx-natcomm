@@ -83,7 +83,13 @@ classdef MapTools < util.propertyValueConstructor
                         f = [varargin{1},varargin{2},varargin{3}];
                     end
                     [fmin,fmax] = grid_extents(obj.Grid);
-                    [NewGrid,resizefun] = resize_grid_to_bounds(obj.Grid,fmin.*f,fmax.*f);
+                    
+                    % expand symmetrically instead (updated March 8, 2022)
+                    newfmin = 0.5*(fmin+fmax) - 0.5*f.*(fmax-fmin);
+                    newfmax = 0.5*(fmin+fmax) + 0.5*f.*(fmax-fmin);
+                    
+                    %[NewGrid,resizefun] = resize_grid_to_bounds(obj.Grid,fmin.*f,fmax.*f);
+                    [NewGrid,resizefun] = resize_grid_to_bounds(obj.Grid,newfmin,newfmax);
                 case 'roi'
                     if numel(varargin)==1
                         farg = varargin{1};
