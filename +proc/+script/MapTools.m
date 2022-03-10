@@ -60,6 +60,9 @@ classdef MapTools < util.propertyValueConstructor
                     assert(ismember(obj.type,{'intensity'})); % other types have not been implemented / tested yet
                     [nmin,nmax] = mask_extents(obj.isASU);
                     [NewGrid,resizefun] = crop_grid(obj.Grid,nmin,nmax);
+                case 'mask'
+                    [nmin,nmax] = mask_extents(varargin{1});
+                    [NewGrid,resizefun] = crop_grid(obj.Grid,nmin,nmax);
                 case 'radius'
                     r = varargin{1};
                     if numel(varargin)==1
@@ -480,7 +483,14 @@ classdef MapTools < util.propertyValueConstructor
                             phaseFactor = 1;
                         end
                         
-                        N(ind) = N(ind) + 1;
+                        switch mode2
+                            case 'replace'
+                                N(ind) = N(ind) + 1;
+                            case {'mean','sum'}
+                                N(:) = N(:) + accumarray(ind,1,[numel(N),1],@sum,0);
+                            otherwise
+                                error('mode2 not recognized');
+                        end
                         
                         for n=1:ncols
                             
@@ -488,7 +498,8 @@ classdef MapTools < util.propertyValueConstructor
                                 case 'replace'
                                     varargout{n}(ind) = phaseFactor.*T.(3 + n)(isIncl);
                                 case {'mean','sum'}
-                                    varargout{n}(ind) = varargout{n}(ind) + phaseFactor.*T.(3 + n)(isIncl);
+                                    A = accumarray(ind,phaseFactor.*T.(3 + n)(isIncl),[prod(obj.Grid.N),1],@sum,0);
+                                    varargout{n} = varargout{n} + reshape(A,obj.Grid.N);
                                 otherwise
                                     error('mode2 not recognized');
                             end
