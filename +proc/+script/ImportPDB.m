@@ -28,6 +28,16 @@ classdef ImportPDB < util.propertyValueConstructor
             'MET', 'ASN', 'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR',...
             'MSE', 'ASX', 'GLX', 'UNK', 'SEC', 'PYL'}; % <-- last row is less standard
         
+        % a list of amino acids with bulky side chains... taken from a list
+        % of rotamer libraries:
+        % 
+        % https://www.sciencedirect.com/science/article/pii/S0022283683711708?via%3Dihub
+        bulkyAminoAcids = {...
+            'PHE','HIS','TYR',... % 'SER','THR','CYS','VAL','PRO'...
+            'LYS','ARG','MET','GLN','GLU','ILE','LEU',...
+            'TRP','ASP','ASN',...
+            };
+        
         standardNucleicAcids = {...
             'A', 'C', 'G', 'I', 'U','DA', 'DC', 'DG', 'DI', 'DT', 'DU'};
         
@@ -266,6 +276,16 @@ classdef ImportPDB < util.propertyValueConstructor
             A.mdxChemicalGroup(isBackbone) = {'backbone'};
             A.mdxChemicalGroup(isSidechain) = {'sidechain'};
             
+            % alternative assignment of backbone / sidechain which only
+            % includes bulky sidechains. Small sidechains are added to the
+            % backbone 
+            
+            isBulkySidechain = isSidechain & ismember(A.resName,obj.bulkyAminoAcids);
+            isBackbone = isBackbone | (isSidechain & ~isBulkySidechain);
+            A.mdxBulkyGroup = categorical(repmat({''},size(A,1),1),valueset);
+            A.mdxBulkyGroup(isBackbone) = {'backbone'};
+            A.mdxBulkyGroup(isBulkySidechain) = {'sidechain'};
+            
             % now, group each heteroatom with its the nearest residue
             res = zeros(size(A,1),1);
             isIncl = A.mdxResidueCategory == 'protein' | A.mdxResidueCategory == 'nucleic acid';
@@ -279,6 +299,13 @@ classdef ImportPDB < util.propertyValueConstructor
             [~,~,res(isIncl)] = unique(A(isIncl,{'chainID','resSeq','mdxChemicalGroup'}),'rows');
             res = proc.script.ImportPDB.assign_by_proximity(A,res);
             A.mdxGroupByChemicalGroup = res;
+            
+            % group atoms by nearest backbone or bulky side-chain atom
+            res = zeros(size(A,1),1);
+            isIncl = A.mdxResidueCategory == 'protein' | A.mdxResidueCategory == 'nucleic acid';
+            [~,~,res(isIncl)] = unique(A(isIncl,{'chainID','resSeq','mdxBulkyGroup'}),'rows');
+            res = proc.script.ImportPDB.assign_by_proximity(A,res);
+            A.mdxGroupByBulkyGroup = res;
             
             % a warning about proc.script.ImportPDB.assign_by_proximity:
             % it currently doesn't take symmetry into consideration, so atoms should be

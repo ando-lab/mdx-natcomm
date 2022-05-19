@@ -252,13 +252,12 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         end
 
         
-        function I = calc1PIntensity(obj,V,sffun,h,k,l)
-
+        function I = calc1PIntensityUnitcell(obj,V,sffun,h,k,l)
+            
             [kspace_group,G_bz] = obj.kspace_groupings(h,k,l);
             
             LD = nm.LatticeDynamics('V',V,'supercell',obj.supercell,'M',obj.M);
-            Kinv = LD.Kinv;
-            Kinv = shiftdim(Kinv,3);
+            C = LD.cov_unitcell;
             
             Ik = cell(G_bz.N);
             nBZ = numel(Ik);
@@ -271,13 +270,47 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                 fprintf(1,'computing 1-phonon structure factor for k-vector %d of %d\n',j,nBZ);
             
                 Gk = sffun(h(kg),k(kg),l(kg));
-                Ik{j} = real(dot(Gk,Gk*conj(Kinv(:,:,j)),2));
-                %Ik{j} = dot(Gk,Gk*conj(Kinv(:,:,j)),2);
+                Ik{j} = real(dot(Gk,Gk*C,2));
             end
             
             I = zeros(size(h));
             for j=1:numel(Ik)
                 I(kspace_group{j}) = Ik{j};
+            end
+        end
+        
+        function I = calc1PIntensity(obj,V,sffun,h,k,l)
+
+            [kspace_group,G_bz] = obj.kspace_groupings(h,k,l);
+            
+            LD = nm.LatticeDynamics('V',V,'supercell',obj.supercell,'M',obj.M);
+            Kinv = LD.Kinv;
+            %C = real(mean(Kinv,[1,2,3]));
+            %C = shiftdim(C,3);
+            Kinv = shiftdim(Kinv,3);
+            
+            Ik = cell(G_bz.N);
+            %I0k = cell(G_bz.N);
+            nBZ = numel(Ik);
+            
+            for j=1:nBZ
+                kg = kspace_group{j};
+                if isempty(kg)
+                    continue;
+                end
+                fprintf(1,'computing 1-phonon structure factor for k-vector %d of %d\n',j,nBZ);
+            
+                Gk = sffun(h(kg),k(kg),l(kg));
+                Ik{j} = real(dot(Gk,Gk*conj(Kinv(:,:,j)),2));
+                %I0k{j} = real(dot(Gk,Gk*C,2));
+                %Ik{j} = dot(Gk,Gk*conj(Kinv(:,:,j)),2);
+            end
+            
+            I = zeros(size(h));
+            %I0 = zeros(size(h));
+            for j=1:numel(Ik)
+                I(kspace_group{j}) = Ik{j};
+                %I0(kspace_group{j}) = I0k{j};
             end
             
         end
@@ -380,6 +413,23 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             P = obj.Cell.AsymmetricUnit.tl2uxyz;
                         
             optfun = @(p) Uobs - calcUfromHessian(Vfun(p),obj.M,P,obj.supercell);
+            
+            [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
+            
+            %H = Vfun(pfit);
+            %Ucalc = calcUfromHessian(Vfun(pfit),P,obj.supercell);
+            %Ucalc = mat2cell(Ucalc,3,3,ones(size(Ucalc,3),1));
+        end
+        
+        function [pfit,fitinfo,history] = fitHessianToADPs_weighted(obj,Uobs,Vfun,p0,pmin,pmax,varargin)
+            % Uobs is a cell array of 3x3 matrices (U)
+            w = 1./cellfun(@trace,Uobs(:));
+            w = shiftdim(w,-2);
+            
+            Uobs = cat(3,Uobs{:}); % <- turn into a 3x3xN
+            P = obj.Cell.AsymmetricUnit.tl2uxyz;
+                        
+            optfun = @(p) w.*(Uobs - calcUfromHessian(Vfun(p),obj.M,P,obj.supercell));
             
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
             

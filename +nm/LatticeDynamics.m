@@ -40,7 +40,7 @@ classdef LatticeDynamics < util.propertyValueConstructor
         end
         
         function Kinv = Kinv(obj)
-            Kinv = pseudo_inverse(obj.K(),obj.G_sup,full(obj.M),obj.tol_eigd);
+            Kinv = pseudo_inverse(obj.K(),obj.G_sup,obj.M,obj.tol_eigd);
         end
         
         function covMat = cov_unitcell(obj)
@@ -158,7 +158,17 @@ function Kinv = pseudo_inverse(K,G_sup,M,tol_eigd)
                 Kn = squeeze(K(n1,n2,n3,:,:));
                 if all([n1,n2,n3]==[o1,o2,o3])
                     try
-                    [v,d] = eig(0.5*(Kn+Kn'),0.5*(M+M'),'vec');
+                    % [v,d] = eig(0.5*(Kn+Kn'),0.5*(M+M'),'vec');
+                    %
+                    % sometimes eig(A,B) has weird normalization behavior
+                    % that potentially breaks this...
+                    
+                    L = chol(0.5*(M+M'),'lower');
+                    Linv = inv(L);
+                    Dk = Linv*Kn*Linv';
+                    [v,d] = eig(0.5*(Dk + Dk'),'vec');
+                    v = Linv'*v;
+                    
                     catch EM
                         disp(size(M));
                         rethrow(EM)

@@ -429,7 +429,7 @@ classdef MapTools < util.propertyValueConstructor
             gridIndex = sub2ind(obj.Grid.N,n1(isOnGrid),n2(isOnGrid),n3(isOnGrid));
         end
         
-        function varargout = table2array(obj,T,mode,mode2)
+        function varargout = table2array(obj,T,mode,mode2,defaultvalue)
             
             if nargin < 3 || isempty(mode)
                 mode = 'direct'; % or 'symexpand'
@@ -439,7 +439,11 @@ classdef MapTools < util.propertyValueConstructor
                 mode2 = 'replace'; % or 'mean' or 'sum'
             end
             
-            fprintf(1,'mode = %s, mode2 = %s\n',mode,mode2);
+            if nargin < 5 || isempty(defaultvalue)
+                defaultvalue = 0;
+            end
+            
+            fprintf(1,'mode = %s, mode2 = %s, default value = %g\n',mode,mode2,defaultvalue);
             
             ncols = size(T,2) - 3; % number of columns to convert
             assert(ncols > 0);
@@ -447,7 +451,7 @@ classdef MapTools < util.propertyValueConstructor
             
             % initialize outputs
             for n=1:ncols
-                varargout{n} = zeros(obj.Grid.N);
+                varargout{n} = defaultvalue*ones(obj.Grid.N);
             end
             
             switch lower(mode)
@@ -641,6 +645,11 @@ classdef MapTools < util.propertyValueConstructor
         
         function [MT,varargout] = import(h5in,mapname,varargin)
             
+            if nargin == 1
+                disp(io.h5.FileInterface(h5in));
+                return
+            end
+            
             [MT,M,mpath] = proc.script.MapTools.fromfile(h5in,mapname);
             
             varargout = cell(1,numel(varargin));
@@ -741,14 +750,27 @@ npadpre = ncmin - nmin;
 npadpost = nmax - ncmax;
 padval = NaN;
 
-resizefun = @(m) ...
-    padarray(...
-    padarray(...
+% resizefun = @(m) ...
+%     padarray(...
+%     padarray(...
+%     m(ncmin(1):ncmax(1),ncmin(2):ncmax(2),ncmin(3):ncmax(3)),...
+%     npadpre,padval,'pre'),...
+%     npadpost,padval,'post');
+
+resizefun = @(m) quickpad2(...
     m(ncmin(1):ncmax(1),ncmin(2):ncmax(2),ncmin(3):ncmax(3)),...
-    npadpre,padval,'pre'),...
-    npadpost,padval,'post');
+    npadpre,npadpost,padval);
 
 end
+
+function mpad = quickpad2(m,npadpre,npadpost,padval)
+
+sz = size(m,1:3);
+
+mpad = padval*ones(sz + npadpre + npadpost);
+mpad(npadpre(1) + (1:sz(1)),npadpre(2) + (1:sz(2)),npadpre(3) + (1:sz(3))) = m;
+end
+
 
 function [NewGrid,cropfun] = crop_grid(G,nmin,nmax)
 

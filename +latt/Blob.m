@@ -214,6 +214,19 @@ classdef Blob
             end
         end
         
+        function newobj = toFullU(obj)
+            % move B into U
+            if numel(obj)==1
+                newU = obj.U*eye(3) + (obj.B/(8*pi^2))*eye(3);
+                newobj = latt.Blob(obj.a,obj.b,obj.A,newU,0,obj.scale);
+            else % vectorize
+                newobj = obj;
+                for j=1:numel(obj)
+                    newobj(j) = obj(j).toFullU();
+                end
+            end
+        end
+        
         function newobj = partitionUB(obj)
             % move as much of U into B as possible keeping U positive
             % definite

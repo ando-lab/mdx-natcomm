@@ -2,7 +2,8 @@ classdef SimDiffuseRcutoff < util.propertyValueConstructor
     %SimDiffuseRcutoff - compute diffuse patterson by "splat" method
     
     properties
-        L
+        LD
+        tlsori
         Basis
         SpaceGroup
         Ops
@@ -134,8 +135,8 @@ classdef SimDiffuseRcutoff < util.propertyValueConstructor
                 A.x,A.y,A.z,obj.maxpairdist,A.mdxAltGroup);
 
             P = obj.calc_projection_operator(A);
-            covsym = calc_symmetry_neighbor_covariances(obj.L,P,Tsn,obj.Ops,obj.B);
-            covasu = calc_asu_neighbor_covariances(obj.L,P);
+            covsym = calc_symmetry_neighbor_covariances(obj.LD,P,Tsn,obj.Ops,obj.B);
+            covasu = calc_asu_neighbor_covariances(obj.LD,P);
 
             % Transform neighbors
             An = transform_symmetry_neighbors(A,Tsn,obj.Ops,obj.B);
@@ -153,15 +154,18 @@ classdef SimDiffuseRcutoff < util.propertyValueConstructor
             
             P = obj.calc_projection_operator(A);
             
-            covMat = obj.L.covarianceMatrix(obj.L.normalModes(),[0,0,0]);
+            covMat = obj.LD.cov_unitcell();
+            
+            %covMat = obj.L.covarianceMatrix(obj.L.normalModes(),[0,0,0]);
             Ulatt = cellfun(@(p) p*covMat(1:6,1:6)*p',P,'Uni',0);
 
         end
         
         function P = calc_projection_operator(obj,A)
             nAtoms = size(A,1);
-            
-            P = nm.Group(A.x,A.y,A.z,1).tl2uxyz;
+            G = nm.Group(A.x,A.y,A.z,1);
+            G.ori= obj.tlsori;
+            P = G.tl2uxyz;
             P = mat2cell(P,3*ones(nAtoms,1),6);
         end
         
@@ -229,21 +233,28 @@ fk_minus = fk.addU(U2jk).rescale(-1);
 end
 
 
-function covMatN = calc_asu_neighbor_covariances(L,P)
+function covMatN = calc_asu_neighbor_covariances(LD,P)
 
-covMat = L.covarianceMatrix(L.normalModes,[0,0,0]);
+covMat = LD.cov_unitcell();
+%covMat = L.covarianceMatrix(L.normalModes,[0,0,0]);
 covMat = covMat(1:6,1:6);
 
 covMatN = cellfun(@(p) covMat*p',P,'Uni',0);
 end
 
 
-function covMatN = calc_symmetry_neighbor_covariances(L,P,Tsn,Ops,B)
+function covMatN = calc_symmetry_neighbor_covariances(LD,P,Tsn,Ops,B)
 
 [o,~,Tsn.ilattop] = unique(Tsn(:,{'xshift','yshift','zshift'}),'rows');
 lattOps = rowfun(@(dx,dy,dz) symm.SymmetryOperator(eye(3),[dx,dy,dz]),o,'OutputFormat','uniform');
 
-covMat = L.covarianceMatrix(L.normalModes,-[lattOps.t]');
+%covMat = L.covarianceMatrix(L.normalModes,-[lattOps.t]');
+Csup = LD.cov_supercell();
+n = [lattOps.t]';
+[ind1,ind2,ind3] = LD.G_sup.frac2ind(n(:,1),n(:,2),n(:,3));
+ind = sub2ind(LD.G_sup.N,ind1,ind2,ind3);
+covMat = Csup(:,:,ind);
+warning('does this actually work?')
 
 nLattOps = numel(lattOps);
 nOps = numel(Ops);
