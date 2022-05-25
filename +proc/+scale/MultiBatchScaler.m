@@ -61,6 +61,7 @@ classdef MultiBatchScaler < handle
                 wm = wm + accumarray(obj(j).ih,w,[n,1]);
                 Im = Im + accumarray(obj(j).ih,Isc.*w,[n,1]);
             end
+            wm(wm==0) = Inf; # fix divide by zero bug when all bins are empty
             Im = Im./wm;
             sigmam = 1./sqrt(wm);
         end
