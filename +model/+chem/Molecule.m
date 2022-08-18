@@ -349,8 +349,18 @@ fprintf(1,'calculating Ibond for %d atom pairs\n',length(tt));
 for k=1:length(tt)
     f1 = allf{eInd(tt(k))};
     f2 = allf{eInd(ss(k))};
-    Ibond = Ibond + 2*f1.*f2.*sinc(2*s*dd(k)); % q*dd(k)/pi = 2*pi*s*dd(k)/pi = 2*s*dd(k)
+    Ibond = Ibond + 2*f1.*f2.*mysinc(2*s*dd(k)); % q*dd(k)/pi = 2*pi*s*dd(k)/pi = 2*s*dd(k)
 end
+
+end
+
+function y = mysinc(x)
+% recreate the MATLAB sinc function 
+%
+% sinc = sin(pi*x)/(pi*x)
+x = x * pi;
+y = sin(x)./x;
+y(x==0) = 1;
 
 end
 
