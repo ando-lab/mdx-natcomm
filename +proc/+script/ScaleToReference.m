@@ -30,7 +30,8 @@ classdef ScaleToReference < util.propertyValueConstructor
             ref.Properties.VariableNames = obj.outcols;
             
             % get table from mtzIn 
-            [mtzData, colNames, Crystal] = io.mtz.read(obj.mtzIn);
+            [mtzData, colNames, c] = io.mtz.read(obj.mtzIn);
+            Crystal = geom.Crystal(c);
             [ism,ix] = ismember(obj.mtzcols,colNames);
             assert(all(ism),'mtz cols not found');
             mtzOut = array2table(mtzData(:,ix),'VariableNames',obj.outcols);
