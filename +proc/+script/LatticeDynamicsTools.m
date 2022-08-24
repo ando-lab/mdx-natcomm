@@ -33,7 +33,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         function [sAxes,ori,F,Fx,Fy,Fz] = map2sfgrid(obj,rho,MapGrid,MapBasis,tlsori)
             % EXPERIMENTAL FEATURE!
             assert(MapBasis.alpha==90 & MapBasis.beta==90 & MapBasis.gamma==90); % required for now
-                        
+            
             MT = proc.script.MapTools('Grid',MapGrid,'Basis',MapBasis,'type','density','isPeriodic',false);
             [x,y,z] = MT.Grid.grid();
             [x,y,z] = MT.Basis.frac2lab(x,y,z);
@@ -118,7 +118,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         function sffun = calc1PSFInterpFromMap(obj,rho,MapGrid,MapBasis)
             % EXPERIMENTAL
             
-            % for now, this only supports one rigid group. In future, 
+            % for now, this only supports one rigid group. In future,
             % will implement segmented maps
             nGroups = numel(obj.Cell.AsymmetricUnit);
             assert(nGroups==1);
@@ -134,13 +134,13 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             end
             
             fprintf(1,'computing interpolants for group %d of %d\n',g,nGroups);
-                
+            
             [sAxes,ori{g},F,Fx,Fy,Fz] = obj.map2sfgrid(rho,MapGrid,MapBasis,tlsori);
             
             GI{g} = griddedInterpolant(sAxes,...
-                    cat(4,real(F),imag(F),real(Fx),imag(Fx),real(Fy),imag(Fy),real(Fz),imag(Fz)),...
-                    obj.interp_mode,'none');
-                
+                cat(4,real(F),imag(F),real(Fx),imag(Fx),real(Fy),imag(Fy),real(Fz),imag(Fz)),...
+                obj.interp_mode,'none');
+            
             sffun = obj.interpolant2sffun(GI,ori);
             
             fprintf(1,'done\n');
@@ -148,7 +148,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         end
         
         function sffun = calc1PSFInterp(obj,AtomFF,groupid)
-        
+            
             nGroups = numel(obj.Cell.AsymmetricUnit);
             assert(all(groupid <= nGroups & groupid >= 1));
             
@@ -163,10 +163,10 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                     tlsori = [0,0,0];
                 end
                 
-                    A.x = A.x - tlsori(1);
-                    A.y = A.y - tlsori(2);
-                    A.z = A.z - tlsori(3);
-                    
+                A.x = A.x - tlsori(1);
+                A.y = A.y - tlsori(2);
+                A.z = A.z - tlsori(3);
+                
                 fprintf(1,'computing interpolants for group %d of %d\n',g,nGroups);
                 
                 [sAxes,ori{g},F,Fx,Fy,Fz] = obj.atoms2sfgrid(A);
@@ -222,7 +222,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         end
         
         function [Gk,kspace_group] = precompute1PSFs(obj,sffun,h,k,l)
-
+            
             [kspace_group,G_bz] = obj.kspace_groupings(h,k,l);
             
             Gk = cell(G_bz.N);
@@ -238,7 +238,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                 Gk{j} = sffun(h(kg),k(kg),l(kg));
             end
         end
-
+        
         
         function [ind,G_bz] = kspace_groupings(obj,h,k,l)
             
@@ -250,7 +250,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
             ind = accumarray([n1,n2,n3],1:numel(h),G_bz.N,@(v) {v});
         end
-
+        
         
         function I = calc1PIntensityUnitcell(obj,V,sffun,h,k,l)
             
@@ -268,7 +268,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                     continue;
                 end
                 fprintf(1,'computing 1-phonon structure factor for k-vector %d of %d\n',j,nBZ);
-            
+                
                 Gk = sffun(h(kg),k(kg),l(kg));
                 Ik{j} = real(dot(Gk,Gk*C,2));
             end
@@ -280,7 +280,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         end
         
         function I = calc1PIntensity(obj,V,sffun,h,k,l)
-
+            
             [kspace_group,G_bz] = obj.kspace_groupings(h,k,l);
             
             LD = nm.LatticeDynamics('V',V,'supercell',obj.supercell,'M',obj.M);
@@ -299,7 +299,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
                     continue;
                 end
                 fprintf(1,'computing 1-phonon structure factor for k-vector %d of %d\n',j,nBZ);
-            
+                
                 Gk = sffun(h(kg),k(kg),l(kg));
                 Ik{j} = real(dot(Gk,Gk*conj(Kinv(:,:,j)),2));
                 %I0k{j} = real(dot(Gk,Gk*C,2));
@@ -339,7 +339,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
         end
         
-
+        
         function [pfit,fitinfo,history] = fitHessianToHalos(obj,I,sigma,Gk,ind,Vfun,p0,pmin,pmax,varargin)
             
             assert(all(size(I,[2,3,4])==obj.supercell));
@@ -368,9 +368,9 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             P = UC.tl2uxyz;
             
             massweights = repmat([UC.AsymmetricUnit.massvec],1,numel(UC.SpaceGroup.generalPositions));
-
+            
         end
-
+        
         function V = calcLatticeCovfromHessian(obj,Hessian,ProjectionOperator,massweights)
             ngroups = size(ProjectionOperator,1)/3;
             w = ones([1,1,ngroups]);
@@ -399,9 +399,9 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
         end
         
         function [pfit,fitinfo,history] = fitHessianToCov(obj,Cobs,weights,Vfun,p0,pmin,pmax,varargin)
-
+            
             Vcalc = @(p) nm.LatticeDynamics('V',Vfun(p),'supercell',obj.supercell,'M',obj.M).cov_supercell;
-
+            
             optfun = @(p) (Vcalc(p) - Cobs).*weights;
             
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
@@ -411,7 +411,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             % Uobs is a cell array of 3x3 matrices (U)
             Uobs = cat(3,Uobs{:}); % <- turn into a 3x3xN
             P = obj.Cell.AsymmetricUnit.tl2uxyz;
-                        
+            
             optfun = @(p) Uobs - calcUfromHessian(Vfun(p),obj.M,P,obj.supercell);
             
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
@@ -428,7 +428,7 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             
             Uobs = cat(3,Uobs{:}); % <- turn into a 3x3xN
             P = obj.Cell.AsymmetricUnit.tl2uxyz;
-                        
+            
             optfun = @(p) w.*(Uobs - calcUfromHessian(Vfun(p),obj.M,P,obj.supercell));
             
             [pfit,fitinfo,history] = run_lsqnonlin(optfun,p0,pmin,pmax,varargin{:});
@@ -437,7 +437,6 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             %Ucalc = calcUfromHessian(Vfun(pfit),P,obj.supercell);
             %Ucalc = mat2cell(Ucalc,3,3,ones(size(Ucalc,3),1));
         end
-
         
     end
     
@@ -495,6 +494,66 @@ classdef LatticeDynamicsTools < util.propertyValueConstructor
             I(isinf(sigma)) = 0;
             
         end
+       
+        
+        function T = calc_asu_covariances(UC,LD)
+            
+            % check that the first on is the identity operator
+            assert(UC.UnitCellOperators(1).isIdentity)
+            
+            [Pcom,dr] = get_Pcom(UC);
+            
+            % covariance matrix
+            
+            C = LD.cov_supercell();
+            
+            V = cov2Vasu(C,Pcom);
+            
+            % generate the table
+            T = cell(numel(V),1);
+            
+            for j=1:numel(V)
+                [n1,n2,n3] = ind2sub(size(V),j);
+                [n1,n2,n3] = LD.G_sup.ind2frac(n1,n2,n3);
+                [x,y,z] = UC.Basis.frac2lab(n1,n2,n3);
+                x = x + dr(:,1);
+                y = y + dr(:,2);
+                z = z + dr(:,3);
+                o = (1:size(dr,1))';
+                n1 = repmat(n1,size(o));
+                n2 = repmat(n2,size(o));
+                n3 = repmat(n3,size(o));
+                [v11,v12,v13,v22,v23,v33] = get_components(V{j});
+                T{j} = table(n1,n2,n3,o,x,y,z,v11,v22,v33,v12,v13,v23);
+            end
+            
+            T = cat(1,T{:});
+        end
+        
+        
+        function T = calc_symmetrized_covariances(UC,LD)
+            
+            Pcom = get_Pcom(UC);
+            
+            % check that the first on is the identity operator
+            assert(UC.UnitCellOperators(1).isIdentity)
+            
+            % covariance matrix
+            
+            C = LD.cov_supercell();
+            
+            V = cov2Vsymav(C,Pcom);
+            
+            [v11,v12,v13,v22,v23,v33] = get_components(V);
+            
+            [f1,f2,f3] = LD.G_sup.grid();
+            [x,y,z] = UC.Basis.frac2lab(f1,f2,f3);
+            
+            T = table(f1(:),f2(:),f3(:),x(:),y(:),z(:),v11(:),v22(:),v33(:),v12(:),v13(:),v23(:),...
+                'VariableNames',{'n1','n2','n3','x','y','z','v11','v22','v33','v12','v13','v23'});
+            
+        end
+        
         
         
         
@@ -589,10 +648,10 @@ npts = size(Pcom,1)/3;
 Md = zeros(3,3,npts);
 
 for n=1:npts
-   n1start = (n-1)*3 + 1;
-   n1stop = n1start + 3 - 1;
-   Pn = Pcom(n1start:n1stop,:);
-   Md(:,:,n) = Pn*C*Pn';
+    n1start = (n-1)*3 + 1;
+    n1stop = n1start + 3 - 1;
+    Pn = Pcom(n1start:n1stop,:);
+    Md(:,:,n) = Pn*C*Pn';
 end
 
 end
@@ -613,5 +672,60 @@ if avgsub
     resid = resid - mean(resid,2); % remove offset (i.e. global aniso scaling)
 end
 resid = resid.*(weights(:)');
+
+end
+
+function [P,dr] = get_Pcom(UC)
+
+com = UC.AsymmetricUnit.ori; % <- !!!
+UC.AsymmetricUnit = nm.Group(com(1),com(2),com(3));
+UC.AsymmetricUnit.ori = com; % <--- !!!
+
+P = UC.tl2uxyz;
+
+% compute distances to unit cell neighbors
+r = cell2mat(UC.unitCellCoordinates)';
+dr = r - r(1,:);
+
+end
+
+function V = cov2Vasu(C,Pcom)
+
+C = C(1:6,:,:,:,:,:);
+C = shiftdim(mat2cell(C,6,size(C,2),ones(size(C,3),1),ones(size(C,4),1),ones(size(C,5),1)),2);
+
+V = cellfun(@(c) Pcom(1:3,1:6)*c*Pcom',C,'Uni',0);
+V = cellfun(@(a) mat2cell(a,3,3*ones(size(a,2)/3,1)),V,'Uni',0);
+
+end
+
+function V = cov2Vsymav(C,Pcom)
+
+C = shiftdim(mat2cell(C,size(C,1),size(C,2),ones(size(C,3),1),ones(size(C,4),1),ones(size(C,5),1)),2);
+
+% average diagonal blocks over symmetry equivalent copies
+V = cellfun(@(c) Pcom*c*Pcom',C,'Uni',0); % project onto center of mass
+V = cellfun(@(a) mat2cell(a,3*ones(size(a,1)/3,1),3*ones(size(a,2)/3,1)),V,'Uni',0); % break into 3x3 blocks
+V = cellfun(@(v) v(logical(eye(size(v,1)))),V,'Uni',0); % extract diagonal blocks
+V = cellfun(@(v) mean(cat(3,v{:}),3),V,'Uni',0); % average over blocks
+
+end
+
+
+function [v11,v12,v13,v22,v23,v33] = get_components(V)
+
+v11 = cellfun(@(v) v(1,1),V);
+v12 = cellfun(@(v) v(1,2),V);
+v13 = cellfun(@(v) v(1,3),V);
+v22 = cellfun(@(v) v(2,2),V);
+v23 = cellfun(@(v) v(2,3),V);
+v33 = cellfun(@(v) v(3,3),V);
+
+v11 = v11(:);
+v12 = v12(:);
+v13 = v13(:);
+v22 = v22(:);
+v23 = v23(:);
+v33 = v33(:);
 
 end

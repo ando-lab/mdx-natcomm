@@ -121,7 +121,20 @@ classdef DeltaPDFTools < util.propertyValueConstructor
             
         end
         
-        
+        function T = export_joint_adps(obj,fit_info)
+            [f1,f2,f3] = obj.G_sup.grid();
+            [x,y,z] = obj.MT_peak.Basis.frac2lab(f1,f2,f3);
+
+            [v11,v12,v13,v22,v23,v33] = get_components({fit_info.V});
+
+            T = table(f1(:),f2(:),f3(:),x(:),y(:),z(:),v11(:),v22(:),v33(:),v12(:),v13(:),v23(:),[fit_info.cc]',...
+                'VariableNames',{'n1','n2','n3','x','y','z','v11','v22','v33','v12','v13','v23','cc'});
+
+            isIncl = true(size(T,1),1);
+            isIncl(f1==0 & f2==0 & f3==0) = false;
+
+            T = T(isIncl,:);
+        end
         
         function [p2s,v0] = parameterize(obj)
             
@@ -190,6 +203,24 @@ end
 
 
 
+
+function [v11,v12,v13,v22,v23,v33] = get_components(V)
+
+v11 = cellfun(@(v) v(1,1),V);
+v12 = cellfun(@(v) v(1,2),V);
+v13 = cellfun(@(v) v(1,3),V);
+v22 = cellfun(@(v) v(2,2),V);
+v23 = cellfun(@(v) v(2,3),V);
+v33 = cellfun(@(v) v(3,3),V);
+
+v11 = v11(:);
+v12 = v12(:);
+v13 = v13(:);
+v22 = v22(:);
+v23 = v23(:);
+v33 = v33(:);
+
+end
 
 
 
