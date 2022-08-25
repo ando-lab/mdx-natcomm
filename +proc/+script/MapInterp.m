@@ -126,8 +126,10 @@ for j=1:npts
     
     if return_bisquare_weights
         indc = cropfun(indmap);
+        isIncl = ~isnan(indc);
+        indc = indc(isIncl);
         n2map(indc) = n2map(indc) + 1;
-        w2map(indc) = w2map(indc) + w2;
+        w2map(indc) = w2map(indc) + w2(isIncl);
     end
 end
 
