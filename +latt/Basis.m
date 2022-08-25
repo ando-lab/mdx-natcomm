@@ -103,14 +103,18 @@ classdef Basis
             newObj = latt.Basis(astar,bstar,cstar,alphastar,betastar,gammastar);
         end
         
-        function [X,Y,Z] = frac2lab(obj,x,y,z)
+        function [x,y,z] = frac2lab(obj,x,y,z)
             M = obj.orthogonalizationMatrix;
-            [X,Y,Z] = latt.Basis.transformCoordinates(M,x,y,z);
+            [x,y,z] = latt.Basis.transformCoordinates(M,x,y,z);
         end
         
-        function [x,y,z] = lab2frac(obj,X,Y,Z)
+        function [x,y,z] = lab2frac(obj,x,y,z)
             M = obj.orthogonalizationMatrix;
-            [x,y,z] = latt.Basis.transformCoordinates(inv(M),X,Y,Z);
+            [x,y,z] = latt.Basis.transformCoordinates(inv(M),x,y,z);
+        end
+        
+        function OB = orient(obj,varargin)
+            OB = latt.OrientedBasis(obj.a,obj.b,obj.c,obj.alpha,obj.beta,obj.gamma,varargin{:});
         end
         
         
@@ -118,14 +122,9 @@ classdef Basis
     
     methods(Static, Access = protected)
         function [X,Y,Z] = transformCoordinates(M,x,y,z)
-            X = zeros(size(x));
-            Y = zeros(size(y));
-            Z = zeros(size(z));
-            xyz = [x(:)';y(:)';z(:)'];
-            XYZ = M*xyz;
-            X(:) = XYZ(1,:);
-            Y(:) = XYZ(2,:);
-            Z(:) = XYZ(3,:);
+            X = M(1,1)*x + M(1,2)*y + M(1,3)*z;
+            Y = M(2,1)*x + M(2,2)*y + M(2,3)*z;
+            Z = M(3,1)*x + M(3,2)*y + M(3,3)*z;
         end
     end
 end

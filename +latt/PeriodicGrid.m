@@ -38,8 +38,8 @@ classdef PeriodicGrid
             end
         end
         function [x,y,z] = grid(obj)
-            [n1,n2,n3] = ndgrid(1:obj.N(1),1:obj.N(2),1:obj.N(3));
-            [x,y,z] = obj.ind2frac(n1,n2,n3);
+            [x,y,z] = obj.ind2frac(1:obj.N(1),1:obj.N(2),1:obj.N(3));
+            [x,y,z] = ndgrid(x,y,z);
         end
         function [x,y,z] = ind2frac(obj,ix,iy,iz)
             x = obj.ori(1) + (ix-1)*obj.P(1)/obj.N(1);
@@ -52,7 +52,7 @@ classdef PeriodicGrid
             M.P = 1./(obj.delta);
             M.ori = -floor(obj.N/2)./obj.P;
         end
-        function A = splat(obj,k1,k2,k3,distfun,addfun,initVal,x,y,z,varargin)
+        function [A,I] = splat(obj,k1,k2,k3,distfun,addfun,initVal,x,y,z,varargin)
             % SPLAT accumulates a function on the periodic grid within a
             % predefined kernel.
             %
@@ -67,6 +67,10 @@ classdef PeriodicGrid
             %    addfun = @min
             %    initVal = Inf;
             %    A = obj.splat(k1,k2,k3,distfun,addfun,initVal,x,y,z,r)
+            %
+            % NOTE (new feature as of sept 18, 2021)
+            % If addfun is @le, @leq, @ge, or @geq, splat returns a second variable I
+            % which is a map of integer indices for each voxel.
             %
             % Example 2 - Map of "electron density" with a 1-Gaussian form
             % factor and a cutoff of nearest neighbor grid points. b is a
@@ -83,6 +87,14 @@ classdef PeriodicGrid
             A = zeros(obj.N);
             A(:) = initVal;
             
+            if any(strcmp(functions(addfun).function,{'le','ge','leq','geq'}))
+                outputMode = 'index';
+                % there are two outputs. Initialize the second one.
+                I = zeros(obj.N);
+            else
+                outputMode = 'simple';
+            end
+
             npts = numel(x);
             
             [ix,iy,iz] = obj.frac2ind(x,y,z,false);
@@ -101,7 +113,16 @@ classdef PeriodicGrid
                 kshiftind = sub2ind(obj.N,k1shift,k2shift,k3shift);
                 args = cellfun(@(c) c(j,:),varargin,'uniformOutput',false);
                 kval = distfun(kx - dx(j),ky - dy(j),kz - dz(j),args{:});
-                A(kshiftind(:)) = addfun(A(kshiftind(:)),kval(:));
+                
+                addFunOut = addfun(kval(:),A(kshiftind(:)));
+                
+                switch outputMode
+                    case 'index'
+                        I(kshiftind(addFunOut)) = j;
+                        A(kshiftind(addFunOut)) = kval(addFunOut);
+                    case 'simple'
+                        A(kshiftind(:)) = addFunOut;
+                end
             end
             
         end

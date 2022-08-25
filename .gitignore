@@ -1,5 +1,6 @@
 .DS_Store
 *.m~
+*.asv
 /demo/proc
 /+io/@DectrisCBF/private/codegen
 /+model/+atom/@AbsorptionCoefficient/private/nist_data

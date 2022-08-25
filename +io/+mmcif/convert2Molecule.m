@@ -24,6 +24,13 @@ else
     BondTable = table([],[],[],[],[],'variableNames',...
         {'atom_id_1','atom_id_2','isDouble','isAromatic','isCovalent'});
 end
+
+if ~iscell(Names)
+    Names = {Names};
+    comp_id = {comp_id};
+    type_symbol = {type_symbol};
+end
+
 AtomTable = table(Names,comp_id,type_symbol,charge,x,y,z);
 
 mol_name = strrep(mmcif.chem_comp.name,'"','');

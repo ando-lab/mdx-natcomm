@@ -1,13 +1,14 @@
-function [ hklArray, colNames, Crystal ] = read( fileName )
+function [ hklArray, colNames, crystal ] = read( fileName )
 % IO.MTZ.READ - function to read reflection data from an mtz file 
 %
 % Usage:
-% [ hklArray, colNames, Crystal ] = read( fileName )
+% [ hklArray, colNames, crystal ] = read( fileName )
 %
 % Returns:
 %   hklArray - an array containing the mtz file data
 %   colNames - a cell array of strings with the names of each column
-%    Crystal - a geom.Crystal object representing the unit cell
+%    crystal - a struct object representing the unit cell with fields:
+%              spaceGroupNumber, a, b, c, alpha, beta, gamma
 %
 % Resources:
 %   ccp4 mtz spec: http://www.ccp4.ac.uk/html/mtzformat.html
@@ -54,9 +55,12 @@ cellInfo = cellInfo{1}; % just use the first appearance
 cellParams = sscanf(cellInfo,'CELL %f %f %f %f %f %f',[1,6]);
 
 symInfo = regexp(header,'SYMINF\s+(?<numSymOps>\d)+\s+(?<numPrimOps>\d)+\s+(?<latticeType>[A-Z]+)\s+(?<spaceGroupNumber>\d+)\s+\''(?<spaceGroup>.*)\''\s+(?<pointGroup>\S+)','names');
-spaceGroupNumber = str2double(symInfo.spaceGroupNumber);
 
-Crystal = geom.Crystal('spaceGroupNumber',spaceGroupNumber,...
+%Crystal = geom.Crystal('spaceGroupNumber',spaceGroupNumber,...
+%    'a',cellParams(1),'b',cellParams(2),'c',cellParams(3),...
+%    'alpha',cellParams(4),'beta',cellParams(5),'gamma',cellParams(6));
+
+crystal = struct('spaceGroupNumber',str2double(symInfo.spaceGroupNumber),...
     'a',cellParams(1),'b',cellParams(2),'c',cellParams(3),...
     'alpha',cellParams(4),'beta',cellParams(5),'gamma',cellParams(6));
 

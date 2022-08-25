@@ -23,13 +23,13 @@ classdef OrientedBasis < latt.Basis
             newBasis = invert@latt.Basis(obj);
             [newObj,err] = obj.realign(newBasis,targetAxes(:,1),targetAxes(:,2),targetAxes(:,3));
         end
-        function [X,Y,Z] = frac2lab(obj,x,y,z)
+        function [x,y,z] = frac2lab(obj,x,y,z)
             M = obj.orientationMatrix*obj.orthogonalizationMatrix;
-            [X,Y,Z] = latt.Basis.transformCoordinates(M,x,y,z);
+            [x,y,z] = latt.Basis.transformCoordinates(M,x,y,z);
         end
-        function [x,y,z] = lab2frac(obj,X,Y,Z)
+        function [x,y,z] = lab2frac(obj,x,y,z)
             M = obj.orientationMatrix*obj.orthogonalizationMatrix;
-            [x,y,z] = latt.Basis.transformCoordinates(inv(M),X,Y,Z);
+            [x,y,z] = latt.Basis.transformCoordinates(inv(M),x,y,z);
         end
     end
     methods(Static)
