@@ -1,65 +1,75 @@
-# `mdx-lib`
+# `mdx-lib`: crystallographic computing in MATLAB.
 
-## Description
+**mdx-lib** is a general-purpose crystallographic computing library designed for processing and simulating _macromolecular diffuse X-ray scattering_ (MDX).
 
-`mdx-lib` is a MATLAB library for processing and simulating macromolecular diffuse X-ray scattering (MDX). See our paper [1] for details.
+To see `mdx-lib` in action, check out [mdx-examples](https://github.com/ando-lab/mdx-examples).
+
+## Manuscripts
+
+[Meisburger, Case, & Ando, 2020]: https://doi.org/10.1038/s41467-020-14933-6
+Meisburger, SP, Case, DA & Ando, N. (2020). Diffuse X-ray scattering from correlated motions in a protein crystal. _Nat Commun_ **11**, 1271. <https://doi.org/10.1038/s41467-020-14933-6>
+
+[Meisburger, Case, & Ando, 2022]: https://doi.org/10.1101/2022.08.22.504832
+Meisburger, SP, Case, DA & Ando, N. (2022). Robust total X-ray scattering workflow to study correlated motion of proteins in crystals. _bioRxiv_ 2022.08.22.504832; doi: <https://doi.org/10.1101/2022.08.22.504832>
+
+
+## Version History
+
+### Version 1.2
+
+Added scripts to support GOODVIBES and DISCOBALL analysis described in [Meisburger, Case, & Ando, 2022].
+
+- New tools to represent atomic scattering factors and ADPs `latt.Blob`
+- New elastic network modelling tools `nm.ElasticNetwork_v2`, `nm.Cell_v2`, and `nm.LatticeDynamics`. These will replace old versions in future release.
+- Demos moved to separate repository [mdx-examples](https://github.com/ando-lab/mdx-examples).
+- High-level scripts to process maps `proc.script.MapTools`, `proc.script.GridDesigner`, `proc.script.MapInterp`
+- Scripts for GOODVIBES analysis: `proc.script.ElasticNetworkTools`, `proc.script.LatticeDynamicsTools`
+- Scripts for DISCOBALL analysis `proc.script.DeltaPDFTools`
+- Scripts for wrangling crystallographic data files: `proc.script.ImportMTZ`, `proc.script.ImportPDB`
+
+### Version 1.1
+
+Released at the same time as [Meisburger, Case, & Ando, 2020] in a separate branch (natcomm). Includes scripts to reproduce the data processing and model fitting of lysozyme (P1 space group). There were also extra atomistic modeling and normal mode analysis libraries not included in the master branch.
+
+### Version 1.0
+
+Released at the same time as [Meisburger, Case, & Ando, 2020]. This more stable version includes all of the libraries for data processing, but not for atomistic modeling or normal mode analysis.
+
+####
 
 ## Repository Contents
 
-- `+io` - read and write files (e.g. from XDS, aimless, Pilatus detectors)
 - `+geom` - diffraction geometry and scattering corrections
 - `+grid` - fractional Miller index grids for voxel integration
-- `+proc` - batch processing scripts for primary data reduction
-- `+latt` - direct and reciprocal lattices, Fourier transforms
-- `+symm` - space group symmetries
+- `+io` - read and write files
+- `+latt` - direct and reciprocal lattices, Fourier transforms, electron density of atoms, atomic displacement parameters
+- `+model` - atomistic modeling, material properties, coherent and incoherent scattering factors
+- `+nm` - crystalline elastic network modeling and normal mode calculations
+- `+proc` - algorithms, high-level scripts, and batch processing routines
+- `+symm` - space groups, symmetry operators, and affine transformations
 - `+util` - functions and class definitions used by other libraries
-- `demo` - a small simulated dataset and MATLAB scripts to process it. See Demonstration, below.
 
-## System Requirements
+## Requirements
 
-### Hardware Requirements
+### Hardware
 
-The processing libraries are designed to run on a desktop computer with a large amount of RAM and multiple CPU cores for parallel processing. The development system had the following specs:
+The data processing libraries are designed to run on a desktop computer with a large amount of RAM and multiple CPU cores for parallel processing. RAM is needed mostly for processing large datasets or if parallel Batch processing is used. It is recommended to run small-scale tests before scaling up.
 
-- RAM: 64 GB
-- CPU: 10 cores, 3 GHz/core
+The development system was a Mac with 64 GB RAM and 10 cores @ 3 GHz/core.
 
-The demo uses simulated data with small images, and will run quickly on a modest machine without parallel processing (see below).
-
-### Software dependencies
+### Software
 
 `mdx-lib` runs within MATLAB. For full functionality, the following toolboxes should be installed:
 
  - Parallel Processing Toolbox (The Mathworks)
  - Statistics and Machine Learning Toolbox (The Mathworks)
 
-The software has been tested on MATLAB version R2018a running on macOS Version 10.14.6 (Mojave).
+The software has been tested on MATLAB version R2021a running on macOS Version 10.14.6 (Mojave). Unix-like paths are assumed throughout (Windows is not tested or supported currently).
 
-## Installation Guide
+## Installation Instructions
 
-Download the repository and add its directory to the MATLAB path.
+Download or clone the repository and add its directory to the MATLAB path.
 
-## Demonstration
+## mdx2 ...
 
-We have prepared a small demonstration in the `demo/` folder, which contains the following:
-
-- `setup_environment.m` - function to set up MATLAB paths
-- `process.m` - integrate, scale, and merge the simulated dataset
-- `expected_results/` - published output of `process.m` in html format.
-- `images/` - simulated diffraction images
-- `code/` - helper functions
-
-The demonstration can be run as follows:
-1. Navigate to the `demo/` folder in MATLAB
-2. Run `setup_environment` to set the paths
-3. Run `process.m`. The script is designed to run in cell mode (MATLAB editor), but it can also be executed directly from the command line.
-
-The demo creates a subdirectory `proc/`, where intermediate results and log files are stored, and produces several figures (see `expected_results/`).
-
-The run time on a normal desktop computer is about 5 minutes.
-
-For further information, see comments in `process.m`.
-
-## References
-
-[1]: Meisburger, S.P., Case, D.A. & Ando, N. Diffuse X-ray scattering from correlated motions in a protein crystal. Nat Commun 11, 1271 (2020). https://doi.org/10.1038/s41467-020-14933-6
+We're working on a complete re-implementation in python! Check it out: [mdx2](https://github.com/ando-lab/mdx2)
