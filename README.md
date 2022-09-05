@@ -68,7 +68,38 @@ The software has been tested on MATLAB version R2021a running on macOS Version 1
 
 ## Installation Instructions
 
-Download or clone the repository and add its directory to the MATLAB path.
+Download a release or clone this repository.
+
+Add mdx-lib directory to the MATLAB path. This can be done using the path editor, or for each session by typing (command prompt):
+
+```matlab
+>>> addpath('/<path>/<to>/mdx-lib')
+```
+
+### Installation issues
+
+#### cbf decompression fails
+
+CBF decompression is accelerated using MATLAB coder to translate the m-file [cbf_decompress.m](+io/@DectrisCBF/private/cbf_decompress.m) into c and compile it into a mex file:
+```
++io/@DectrisCBF/private/cbf_decompress_mex.mexmaci64
+```
+Since the mex file was compiled on an intel-based Mac, it will only work on similar systems. If using a different OS or architecture, cbf_decompress will need to be re-compiled. The project file is included here:
+```
++io/@DectrisCBF/private/cbf_decompress.prj
+```
+
+Users have also reported the following error:
+
+> cbf_decompress_mex.mexmaci64 cannot be opened because the developer cannot be verified
+
+Running this in the terminal should fix the issue (substitute with path to repository on your machine):
+
+```bash
+sudo xattr -r -d com.apple.quarantine /<path>/<to>/mdx-lib
+
+sudo find /<path>/<to>/mdx-lib -name \*.mexmaci64 -exec spctl --add {} \;
+```
 
 ## mdx2 ...
 
