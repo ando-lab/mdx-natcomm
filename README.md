@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/233141955.svg)](https://zenodo.org/badge/latestdoi/233141955)
+
 # `mdx-lib`: crystallographic computing in MATLAB.
 
 **mdx-lib** is a general-purpose crystallographic computing library designed for processing and simulating _macromolecular diffuse X-ray scattering_ (MDX).
