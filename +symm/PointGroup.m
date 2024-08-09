@@ -23,7 +23,7 @@ classdef PointGroup
                     varargin{2} = ['P' varargin{2}];
                 end
             elseif nargin==1 && ~isnumeric(varargin{1})
-                if ~strncmpi(varargin{1},'P',1)
+                if ~any(strncmpi(varargin{1},{'P','R'},1))
                     varargin{1} = ['P' varargin{1}];
                 end
             end

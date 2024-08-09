@@ -42,6 +42,8 @@ classdef LaueGroup < symm.PointGroup
                     isasu = @(h,k,l) h>=k & k>=0 & (k>0 | l>=0);
                 case 164 % -3m1
                     isasu = @(h,k,l) h>=k & k>=0 & (h>k | l>=0);
+                case 166 % -3m(R)
+                    isasu = @(h,k,l) h>=0 & k>=h & l<=h & ~(h==0 & l<0 & abs(l)>k);
                 case 200 % m-3
                     isasu = @(h,k,l) h>=0 & ((l>=h & k>h) | (l==h & k==h));
                 case 221 % m-3m
