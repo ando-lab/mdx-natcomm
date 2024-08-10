@@ -25,6 +25,10 @@ classdef SpaceGroupInfo
         function obj = SpaceGroupInfo(varargin)
             switch nargin
                 case 1
+                    % handle special cases
+                    if isnumeric(varargin{1}) && varargin{1}==1155
+                        varargin{1} = 'R32:r';
+                    end
                     if isnumeric(varargin{1})
                         sginfo = symm.SpaceGroupInfo.search('number',varargin{1});
                     else
@@ -52,7 +56,7 @@ classdef SpaceGroupInfo
                 %sgdata = sg_data_table();
                 %thisData = sgdata{sgnum};
                 
-            sginfo
+            %sginfo
                 
             obj.number = sginfo.number;
             obj.name = sginfo.name{1};
